@@ -3,9 +3,9 @@
 	url = https://github.com/PDNMX/SistemaDeclaraciones_backend.git
 
 [submodule "SistemaDeclaraciones_frontend"]
-        path = SistemaDeclaraciones_frontend
-        url = https://github.com/PDNMX/SistemaDeclaraciones_frontend.git
+	path = SistemaDeclaraciones_frontend
+	url = https://github.com/PDNMX/SistemaDeclaraciones_frontend.git
 
 [submodule "SistemaDeclaraciones_reportes"]
-        path = SistemaDeclaraciones_reportes
-        url = https://github.com/PDNMX/SistemaDeclaraciones_reportes.git
+	path = SistemaDeclaraciones_reportes
+	url = https://github.com/PDNMX/SistemaDeclaraciones_reportes.git
