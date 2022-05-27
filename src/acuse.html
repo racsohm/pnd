@@ -1,0 +1,49 @@
+<article>
+    <table width="100%">
+        <tr>
+            <td style="width: 30%">
+                <img width="192" height="76" src="{logo}">
+            </td>
+            <td style="width: 70%; text-align: right">
+                <h2>ACUSE DE DECLARACIÓN PATRIMONIAL Y DE INTERÉS</h2>
+            </td>
+        </tr>
+    </table>
+    <h2 class="text-center">
+        ID DE DECLARACIÓN: {{ _id }} <br>
+        FECHA DE PRESENTACIÓN {{ updatedAt | formatdatetime('%d de %B de %Y') | dateTranslation }}
+    </h2>
+    <p class="no-decoration mt-80px">
+        {{acuse.texto1_cuerpo_acuse}} {{acuse.ente_publico}} {{acuse.texto2_cuerpo_acuse}}
+    </p>
+
+    <table class="no-decoration mt-80px" style="width: 100%; border-collapse: collapse;">
+        <tr style="background-color: #b2b2b2;">
+            <td>Apellido Paterno</td>
+            <td>Apellido Materno</td>
+            <td>Nombre(s)</td>
+        </tr>
+        <tr>
+            <td>{{datosGenerales.primerApellido}}</td>
+            <td>{{datosGenerales.segundoApellido | dataEmpty}}</td>
+            <td>C. {{datosGenerales.nombre}}</td>
+        </tr>
+
+        <tr style="background-color: #b2b2b2;">
+            <td>RFC</td>
+            <td>CURP</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>{% if datosGenerales.rfc %} {{datosGenerales.rfc.rfc}}{{datosGenerales.rfc.homoClave}} {% endif %}</td>
+            <td>{{datosGenerales.curp}}</td>
+            <td></td>
+        </tr>
+    </table>
+
+
+
+    <h3 style="text-align: center;">Gobierno Incluyente</h3>
+    <h3 style="text-align: center;">{{datosGenerales.ente_publico}}</h3>
+
+</article>
