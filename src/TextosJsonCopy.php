@@ -4,9 +4,10 @@ namespace Racsohm\Pnd;
 
 class TextosJsonCopy
 {
-    private $tipo_actual = null;
-    private $file = null;
-    private $savePath= null;
+    protected $tipo_actual = null;
+    protected $file = null;
+    protected $savePath= './SistemaDeclaraciones_reportes/assets/json/';
+    protected $env = 'ENV_TEXTO_ACUSE';
 
     /**
      * @throws \Exception
@@ -24,10 +25,14 @@ class TextosJsonCopy
             case "conclusion":
                 $this->tipo_actual = "conclusion.json";
                 break;
+
+            default:
+                throw new \Exception('No indico un tipo de texto valido: '.$tipo);
+                break;
         }
 
-        if(!$this->file = file_get_contents('./src/json/'.$this->tipo_actual))
-            throw new \Exception('Error al cargar la plantilla JSON inicial');
+        if(!$this->file = @file_get_contents('./src/json/'.$this->tipo_actual))
+            throw new \Exception('Error al cargar la base: '.$this->tipo_actual);
 
 
     }
@@ -35,11 +40,12 @@ class TextosJsonCopy
     /**
      * @return void
      */
-    private function reemplaza(){
+    protected function reemplaza(){
+        $envs = constant($this->env);
 
         $target = [];
         $values = [];
-        foreach (ENV_TEXTO_ACUSE as $item){
+        foreach ($envs as $item){
             $target[] = "{".$item."}";
             $values[] = $_ENV["$item"];
         }
@@ -58,7 +64,7 @@ class TextosJsonCopy
         }
         else{
             return file_put_contents(
-                './SistemaDeclaraciones_reportes/assets/json/'.$this->tipo_actual,
+                $this->savePath.$this->tipo_actual,
                 $this->file
             );
         }

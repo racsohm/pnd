@@ -74,33 +74,7 @@ try{
      */
 
     {
-       /* // Archivo de configuración del backend:
-        $EnvBackend = file_get_contents('./src/backend/.env');
-
-        if(!$EnvBackend)
-            throw new Exception('No fue posible ubicar el archivo ejemplo del backend');
-
-        if(!file_put_contents(
-            './'.SISTEMA.'_backend/.env',
-            $EnvBackend
-        )){
-            throw new Exception('Error al copiar .env del Backend');
-        }
-
-        // Archivo de configuración del reporteador:
-        $EnvReporteador = file_get_contents('./src/reportes/.env');
-
-        if(!$EnvReporteador)
-            throw new Exception('No fue posible ubicar el archivo ejemplo del reporteador');
-
-        if(!file_put_contents(
-            './'.SISTEMA.'_reportes/.env',
-            $EnvReporteador
-        )){
-            throw new Exception('Error al copiar .env del Reporteador');
-        }
-
-        // Archivos del front*/
+        \Racsohm\Pnd\EnvProcesor::procesar('backend');
     }
 
 
