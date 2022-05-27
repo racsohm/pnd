@@ -38,6 +38,12 @@ then
 #Iniciamos la preparación del sistema:
 php ./src/prepara.php
 #Iniciamos la construcción del contenedor:
+echo "$Blue Iniciando instancias"
+cd SistemaDeclaraciones_backend
+sudo docker-compose -p declaraciones-backend up -d --build --force-recreate
+cd ...
+cd SistemaDeclaraciones_frontend
+sudo docker-compose -p declaraciones-frontend up -d --build --force-recrete
 
 else
 echo "Proceso detenido (No presiono S), lea la documentación para más información".
