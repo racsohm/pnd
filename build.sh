@@ -21,9 +21,9 @@ git clone https://github.com/PDNMX/SistemaDeclaraciones_backend.git
 git clone https://github.com/PDNMX/SistemaDeclaraciones_reportes.git
 
 #Instalamos dependencias:
-#sudo apt update
-#sudo apt install --yes php-cli php-dev php-mongodb docker docker-compose mongodb composer
-#sudo pecl install mongodb
+sudo apt update
+sudo apt install --yes php-cli php-dev php-mongodb docker docker-compose mongodb composer
+sudo pecl install mongodb
 # HORA COPIAMOS EL .extension=mongodb.so
 
 #echo "/mnt/pg_master/wal_archives     10.20.20.5(rw,sync,no_root_squash)" >> /etc/exports
