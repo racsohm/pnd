@@ -22,15 +22,21 @@ script crea automaticamente la base dedatos del .env del backend.
 - Contar con almenos 15 GB de Espació en disco para la construcción de los contenedores.
 
 **Preparativos:**
-- Primero por favor modifique el archivo ubicado en **./src/backend/.env** donde debera especificar el nombre de
+- Primero por favor modifique el archivo ubicado en **.env** donde debera especificar el nombre de
 la base de datos, el usuario y la contraseña (estos se crearan automáticamente por el script de instalación) los valores
  a modificar para una instalación simple son:
   - MONGO_USERNAME=username
   -  MONGO_PASSWORD=passwd
   -  MONGO_DB=newmodels
-- Para agregar el logo del municipio al portal de inicio de sesión, por favor coloque la imagen formato jpeg
-en la carpeta src.
-- Para cambiar el texto del acuse por favor modifique
+- Para agregar el logo del municipio al portal de inicio de sesión, por favor indique la url de la imagen a descargar e
+indique si de debe hacer el procedimiento en las varaibles: URL_LOGO, IMPLEMENTAR_LOGO
+- Para cambiar el texto del acuse por favor modifique USAR_ACUSE_PERSONALIZADO=1
+- Por favor para mas información sobre las variables de entorno por favor visite la documentación del autor:
+  
+  | Manual            | Descripción | Recurso |
+  | ----------------- | ----------- | --------|
+  | Manual de usuario | Manual para usuarios del Sistema de Declaraciones (declarantes y usuarios administrativos). | [Manual](manuales/manual_usuario.pdf)|
+  | Manual de instalación | Manual orientado al personal encargado de la instalación y soporte técnico del Sistema de Declaraciones. | [Manual](manuales/manual_instalacion.pdf)|
 
 **¿Como usar el script?**
 

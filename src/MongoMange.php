@@ -22,7 +22,7 @@ class MongoMange
 
     public function connect(){
 
-        $db = new \MongoDB\Client("mongodb://root:$this->db_user@$this->db_host/admin");
+        $this->connection = new \MongoDB\Client("mongodb://root:$this->db_user@$this->db_host/admin");
 
 
     }
