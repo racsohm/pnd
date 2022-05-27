@@ -8,10 +8,11 @@ class MongoMange
     private $db_name = 'db_name';
     private $db_user = 'new_user';
     private $db_pass = 'new_pass';
+    private $db_port = '27017';
 
     private  $connection;
 
-    public function __construct($db_host,$db_name,$db_user,$db_pass)
+    public function __construct($db_host,$db_name,$db_user,$db_pass,$db_port=27017)
     {
         $this->db_host = $db_host;
         $this->db_user = $db_user;
@@ -21,18 +22,14 @@ class MongoMange
     }
 
     public function connect(){
-
-        $this->connection = new \MongoDB\Client("mongodb://root:$this->db_user@$this->db_host/admin");
-
-
+        $this->connection = new \MongoDB\Driver\Manager('mongodb://'.$this->db_host.':'.$this->db_port);
     }
 
 
 
     public function createDB(){
-        $this->connection->selectDB( $this->db_name );
 
-        $command = array
+        $commandArr = array
         (
             "createUser" => $this->db_user,
             "pwd"        => $this->db_pass,
@@ -42,6 +39,13 @@ class MongoMange
             )
         );
 
-        $this->connection->command( $command );
+        $command = new \MongoDB\Driver\Command($commandArr);
+
+        try {
+            $cursor = $this->connection->executeCommand('admin', $command);
+        } catch(\MongoDB\Driver\Exception $e) {
+            echo $e->getMessage(), "\n";
+            exit;
+        }
     }
 }

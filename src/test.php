@@ -2,8 +2,7 @@
 require_once "../vendor/autoload.php";
 require_once "MongoMange.php";
 
-$m = new \Racsohm\Pnd\MongoMange('localhost','deb_pnd','dev_usr','1205');
-$m->connect();
-$m->createDB();
+$mongo = new \Racsohm\Pnd\MongoMange('localhost','pdn_dev','pdn_user','1205');
+$mongo->connect();
+$mongo->createDB();
 
-var_dump($m);

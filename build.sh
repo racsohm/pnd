@@ -14,6 +14,20 @@ echo "$Red PROVISTO POR LA PND Y NO DEBERÁ USARSE PARA MODIFICAR UN SISTEMA EN 
 echo "$Red DATAISMO SOFTWARE NO ES, NI SERÁ RESPONSABLE POR LA PERDIDA DE INFORMACIÓN O CUALQUIER OTRO DAÑO ATRIBUIBLE AL USO "
 echo "$Red DE ESTE SCRIPT. LEA LA DOCUMENTACIÓN ANTES DE EMPEZAR"
 
+printf "\n"
+printf "\n"
+echo "$Red Por favor escriba 'OK', para saber que esta de acuerdo"
+read -r okvar
+
+if [[ "$okvar" != 'OK'  ]]
+then
+  echo "$Red Proceso detenido, gracias."
+  exit
+fi
+
+printf "\n"
+printf "\n"
+echo "$Blue Iniciando proceso:"
 
 #Clonamos proyectos
 git clone https://github.com/PDNMX/SistemaDeclaraciones_frontend.git

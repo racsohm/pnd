@@ -2,6 +2,7 @@
 require_once './vendor/autoload.php';
 require_once 'variables.php';
 
+
 try{
     // Leemos el .env para iniciar con las modificaciones del sistema:
     $dotenvBack = Dotenv\Dotenv::createImmutable(getcwd());
@@ -81,6 +82,16 @@ try{
         \Racsohm\Pnd\EnvProcesor::procesar('front');
         \Racsohm\Pnd\EnvProcesor::procesar('front_prod');
 
+    }
+    // Procedemos a crear la base de datos:
+    {
+        $mongo = new \Racsohm\Pnd\MongoMange(
+            $_ENV['MONGO_HOSTNAME'],
+            $_ENV['MONGO_DB'],
+            $_ENV['MONGO_USERNAME'],
+            $_ENV['MONGO_PASSWORD'],
+            $_ENV['MONGO_PORT']
+        );
     }
 
 
