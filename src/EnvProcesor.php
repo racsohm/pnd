@@ -21,6 +21,16 @@ class EnvProcesor extends TextosJsonCopy
                  $this->savePath = './'.SISTEMA.'_';
                  $this->tipo_actual = 'reportes/.env';
                  break;
+             case "front":
+                 $this->env = 'ENV_FRONT';
+                 $this->savePath = './'.SISTEMA.'_';
+                 $this->tipo_actual = 'fronted/src/environments/environment.ts';
+                 break;
+             case "front_prod":
+                 $this->env = 'ENV_FRONT';
+                 $this->savePath = './'.SISTEMA.'_';
+                 $this->tipo_actual = 'fronted/src/environments/environment.prod.ts';
+                 break;
          }
 
             if(!$this->file = file_get_contents('./src/'.$this->tipo_actual))
