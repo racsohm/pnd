@@ -44,11 +44,11 @@ read -r compilarimagenes
 if [[ "$compilarimagenes" == "S" ]]
 then
 #Iniciamos la construcción del contenedor:
-echo "$Blue Iniciando instancias"
-
+echo "$Blue Iniciando instancia BackeEnd"
 cd SistemaDeclaraciones_backend
 sudo docker-compose -p declaraciones-backend up -d --build --force-recreate
 cd ..
+echo "$Blue Iniciando instancia FrontEnd"
 cd SistemaDeclaraciones_frontend
 sudo docker-compose -p declaraciones-frontend up -d --build --force-recreate
 fi
