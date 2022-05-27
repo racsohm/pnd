@@ -10,8 +10,12 @@ echo "DATAISMO SOFTWARE NO ES, NI SERÁ RESPONSABLE POR LA PERDIDA DE INFORMACI�
 echo "DE ESTE SCRIPT. LEA LA DOCUMENTACIÓN ANTES DE EMPEZAR"
 
 #Instalamos dependencias:
-# sudo apt update
-# sudo apt install --yes php7.4-common php7.4-mongodb docker docker-compose mongodb composer
+sudo apt update
+sudo apt install --yes php-cli php-mongodb docker docker-compose mongodb composer
+#Clonamos proyectos
+git clone https://github.com/PDNMX/SistemaDeclaraciones_frontend.git
+git clone https://github.com/PDNMX/SistemaDeclaraciones_backend.git
+git clone https://github.com/PDNMX/SistemaDeclaraciones_reportes.git
 echo "¿Ya modifico las variables de la carpeta ./src (S = Sí, N = No)?"
 
 # Ask the user for their name
