@@ -27,24 +27,32 @@ sudo apt install --yes php-cli php-mongodb docker docker-compose mongodb compose
 
 composer install
 
-echo "$Blue ¿Ya modifico las variables de la carpeta ./src (S = Sí, N = No)?"
+echo "$Blue ¿Ya modifico las variables del archivo .env (S = Sí, N = No)?"
 
 # Ask the user for their name
 
 read -r varname
 
-if [ "$varname" == 'S' ]
+if [[ "$varname" == 'S'  ]]
 then
 #Iniciamos la preparación del sistema:
 php ./src/prepara.php
+
+echo "$Blue ¿Deseas iniciar con la creacion de las instancias de Docker (S = Sí, N = No) ?"
+read -r compilarimagenes
+
+if [[ "$compilarimagenes" == "S" ]]
+then
 #Iniciamos la construcción del contenedor:
 echo "$Blue Iniciando instancias"
+
 cd SistemaDeclaraciones_backend
 sudo docker-compose -p declaraciones-backend up -d --build --force-recreate
-cd ...
+cd ..
 cd SistemaDeclaraciones_frontend
-sudo docker-compose -p declaraciones-frontend up -d --build --force-recrete
-
+sudo docker-compose -p declaraciones-frontend up -d --build --force-recreate
+fi
+echo "$Green **** Proceso terminado ****"
 else
 echo "Proceso detenido (No presiono S), lea la documentación para más información".
 fi

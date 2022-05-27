@@ -40,6 +40,7 @@ try{
      * Header FRONT
      * Agregamos un texto de soporte y el logotipo del municipio.
      */
+    if($_ENV['IMPLEMENTAR_LOGO'] == "1")
     if(!file_put_contents(
         './'.SISTEMA.'_frontend/src/app/@shared/header/header.component.html',
         $headerFileChange
@@ -48,6 +49,7 @@ try{
     }
 
     // Modificacion Acuse:
+    if($_ENV['USAR_ACUSE_PERSONALIZADO'] == "1")
     if(!file_put_contents(
         './'.SISTEMA.'_reportes/templates/acuse.html',
         $headerFileChange
