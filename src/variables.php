@@ -1,0 +1,43 @@
+<?php
+
+const SISTEMA = 'SistemaDeclaraciones';
+
+const ENV_BACKEND = [
+    'NODE_ENV',
+    'PORT',
+    'FE_RESET_PASSWORD_URL',
+    'ELASTIC_SEARCH_URL',
+    'ELASTIC_SEARCH_PASSWORD',
+    'JWT_NO_VERIFY',
+    'JWT_SECRET',
+    'JWT_EXPIRATION',
+    'REFRESH_JWT_SECRET',
+    'REFRESH_JWT_EXPIRATION',
+    'SENDGRID_API_KEY',
+    'SENDGRID_MAIL_SENDER',
+    'REPORTS_URL',
+    'REPORTS_API_KEY',
+    'MONGO_USERNAME',
+    'MONGO_PASSWORD',
+    'MONGO_HOSTNAME',
+    'MONGO_PORT',
+    'MONGO_DB',
+];
+const ENV_REPORTS = [
+    'PORT_REPORTS',
+    'API_KEY'
+];
+
+const ENV_FRONT = [
+    'FRONT_SERVER_URL',
+    'FRONT_PAGE_URL',
+];
+
+const ENV_TEXTO_ACUSE =[
+    'EJERCICIO',
+    'LUGAR',
+    'ENTE_PUBLICO',
+    'TEXTO1_CUERPO_ACUSE',
+    'TEXTO2_CUERPO_ACUSE',
+    'TEXTO_DECLARATORIA'
+];

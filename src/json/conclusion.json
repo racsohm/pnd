@@ -1,0 +1,25 @@
+{
+  "acuse":	{
+    "ente_publico": "{ENTE_PUBLICO}",
+    "tipo_declaracion": "DECLARACIÓN DE CONCLUSIÓN",
+    "ejercicio": "{EJERCICIO}",
+    "lugar": "{LUGAR}",
+    "texto1_cuerpo_acuse": "{TEXTO1_CUERPO_ACUSE}",
+    "texto2_cuerpo_acuse": "{TEXTO2_CUERPO_ACUSE}",
+    "servidor_publico_recibe": {
+      "nombre": "Juan Perez Tellez",
+      "cargo": "Director general de Responsabilidades y Verificación Patrimonial"
+    }
+  },
+  "declaracion": {
+    "ente_publico": "{ENTE_PUBLICO}",
+    "subtitulo": "DECLARACIÓN PATRIMONIAL Y DE INTERESES",
+    "tipo_declaracion": "DECLARACIÓN DE CONCLUSIÓN",
+    "ejercicio": "{EJERCICIO}",
+    "servidor_publico_recibe": {
+      "nombre": "Juan Perez Tellez",
+      "cargo": "Director general de Responsabilidades y Verificación Patrimonial"
+    },
+    "texto_declaratoria": "{TEXTO_DECLARATORIA}"
+  }
+}

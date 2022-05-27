@@ -1,18 +1,35 @@
 <?php
-const SISTEMA = 'SistemaDeclaraciones';
+require_once './vendor/autoload.php';
+require_once 'variables.php';
 
 try{
+    // Leemos el .env para iniciar con las modificaciones del sistema:
+    $dotenvBack = Dotenv\Dotenv::createImmutable(getcwd());
+    $dotenvBack->load();
+
+    // Ahora creamos la base de datos:
+
+    // COPIAMOS EL LOGO
     $headerFile = file_get_contents('./src/header.component.html');
     $acuseFile = file_get_contents('./src/acuse.html');
+
+
+
 
     /**
      * Preparamos la image
      * que debe ser nombrado extrictamente como logo.jpeg para agregar al sistema.
      */
 
-    $img_file = './src/logo.jpeg';
-    $imgData = base64_encode(file_get_contents($img_file));
-    $src = 'data: '.mime_content_type($img_file).';base64,'.$imgData;
+    $img_file = $_ENV['URL_LOGO'];
+    if(!$imgData = file_get_contents($img_file))
+        throw new Exception('Error al obtener la imagen');
+
+
+    $file_info = new finfo(FILEINFO_MIME_TYPE);
+    $mime_type = $file_info->buffer($imgData);
+
+    $src = 'data:'.$mime_type.';base64,'.base64_encode($imgData);
 
     $headerFileChange = str_replace('{logo}', $src, $headerFile);
     $acuseFileChange = str_replace('{logo}', $src, $acuseFile);
@@ -35,7 +52,7 @@ try{
         './'.SISTEMA.'_reportes/templates/acuse.html',
         $headerFileChange
     )){
-        throw new Exception('Error al copiar el archivo de cabecera');
+        throw new Exception('Error al copiar el archivo de acuse');
     }
 
     /**
@@ -44,27 +61,10 @@ try{
      *
      */
     {
-        $json = file_get_contents('./src/variables.json');
-        if(!file_put_contents(
-            './'.SISTEMA.'_reportes/assets/json/modificacion.json',
-            $json
-        )){
-            throw new Exception('Error al copiar el json de modificacion');
-        }
+            \Racsohm\Pnd\TextosJsonCopy::procesar('inicial');
+            \Racsohm\Pnd\TextosJsonCopy::procesar('modificacion');
+            \Racsohm\Pnd\TextosJsonCopy::procesar('conclusion');
 
-        if(!file_put_contents(
-            './'.SISTEMA.'_reportes/assets/json/inicio.json',
-            $json
-        )){
-            throw new Exception('Error al copiar el json de modificacion');
-        }
-
-        if(!file_put_contents(
-            './'.SISTEMA.'_reportes/assets/json/conclusion.json',
-            $json
-        )){
-            throw new Exception('Error al copiar el json de modificacion');
-        }
     }
 
     /**
@@ -74,8 +74,8 @@ try{
      */
 
     {
-        // Archivo de configuración del backend:
-        $EnvBackend = file_get_contents('./src/.env.example.backend');
+       /* // Archivo de configuración del backend:
+        $EnvBackend = file_get_contents('./src/backend/.env');
 
         if(!$EnvBackend)
             throw new Exception('No fue posible ubicar el archivo ejemplo del backend');
@@ -88,7 +88,7 @@ try{
         }
 
         // Archivo de configuración del reporteador:
-        $EnvReporteador = file_get_contents('./src/.env.example.reportes');
+        $EnvReporteador = file_get_contents('./src/reportes/.env');
 
         if(!$EnvReporteador)
             throw new Exception('No fue posible ubicar el archivo ejemplo del reporteador');
@@ -99,6 +99,8 @@ try{
         )){
             throw new Exception('Error al copiar .env del Reporteador');
         }
+
+        // Archivos del front*/
     }
 
 
