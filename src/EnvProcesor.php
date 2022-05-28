@@ -34,7 +34,7 @@ class EnvProcesor extends TextosJsonCopy
          }
 
             if(!$this->file = file_get_contents('./src/'.$this->tipo_actual))
-                throw new \Exception('Error al cargar la plantilla .ENV: '.$this->tipo_actual .'|'.getcwd());
+                throw new \Exception('Error al cargar la plantilla .ENV: ./src/'.$this->tipo_actual .'|'.getcwd());
         }
 
     static function procesar($tipo){
