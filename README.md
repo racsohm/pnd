@@ -21,15 +21,15 @@ script crea automaticamente la base dedatos del .env del backend si se indica.
 - Contar con almenos 15 GB de Espació en disco para la construcción de los contenedores.
 
 **Preparativos:**
-- Primero modifique el archivo ubicado en **.env** donde debera especificar el nombre de
-la base de datos, el usuario y la contraseña (estos se crearan automáticamente por el script de instalación) los valores
- a modificar para una instalación simple son:
+- Primero modifique el archivo ubicado en **.env** el cual contiene las variables de los tres sistemas (backed,frontend,reportes) donde 
+debera especificar el nombre de la base de datos, el usuario y la contraseña (estos se crearan automáticamente por el script de instalación)
+los valores a modificar para una instalación simple son:
   - MONGO_USERNAME=username
-  -  MONGO_PASSWORD=passwd
+  -  MONGO_PASSWORD=passwd 
   -  MONGO_DB=newmodels
 - Para agregar el logo del municipio al portal de inicio de sesión, por favor indique la url de la imagen a descargar e
 indique si de debe hacer el procedimiento en las varaibles: URL_LOGO, IMPLEMENTAR_LOGO
-- Para cambiar el texto del acuse por favor modifique USAR_ACUSE_PERSONALIZADO=1, el arvhivo que usa el sistema para generar el PDF
+- Para cambiar el texto del acuse modifique las variables USAR_ACUSE_PERSONALIZADO=1 Y , el cual modifica el archivo que generar el PDF
 del acuse se encuetra en ./src/acuse.html el cual puede modificar antes de inicar la construcción de los contenedores.
 - Por favor para mas información sobre las variables de entorno por favor visite la documentación del autor:
   
