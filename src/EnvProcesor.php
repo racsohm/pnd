@@ -33,7 +33,7 @@ class EnvProcesor extends TextosJsonCopy
                  break;
          }
 
-            if(!$this->file = file_get_contents('./src/'.$this->tipo_actual))
+            if(!$this->file = file_get_contents('/src/'.$this->tipo_actual))
                 throw new \Exception('Error al cargar la plantilla .ENV: '.$this->tipo_actual .'|'.getcwd());
         }
 
