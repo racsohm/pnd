@@ -29,7 +29,8 @@ la base de datos, el usuario y la contraseña (estos se crearan automáticamente
   -  MONGO_DB=newmodels
 - Para agregar el logo del municipio al portal de inicio de sesión, por favor indique la url de la imagen a descargar e
 indique si de debe hacer el procedimiento en las varaibles: URL_LOGO, IMPLEMENTAR_LOGO
-- Para cambiar el texto del acuse por favor modifique USAR_ACUSE_PERSONALIZADO=1
+- Para cambiar el texto del acuse por favor modifique USAR_ACUSE_PERSONALIZADO=1, el arvhivo que usa el sistema para generar el PDF
+del acuse se encuetra en ./src/acuse.html el cual puede modificar antes de inicar la construcción de los contenedores.
 - Por favor para mas información sobre las variables de entorno por favor visite la documentación del autor:
   
   | Manual            | Descripción | Recurso |
