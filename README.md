@@ -12,17 +12,16 @@ DE INFORMACIÓN O CUALQUIER OTRO DAÑO ATRIBUIBLE AL USO DE ESTE SCRIPT. LEA LA 
 
 ***
 **Requisitos:**
-- El script precisa de al menos ubuntu 18.04 y ha sido provado hasta la versión 20.04. 
- (Aunque podría funcionar con debian 10).
+- El script precisa ubuntu 20.04 y precisa de PHP para realizar las modicaciones de las platillas y leer los datos de las vairables .env.
 - Puede ser usando en windows con las tecnologías WLS (Windows Linux Subsystem).
 - No debe de existir una base de MongoDB instalada previamente, ya que puede ocasionar perdida de datos ya que el 
-script crea automaticamente la base dedatos del .env del backend.
+script crea automaticamente la base dedatos del .env del backend si se indica.
 - Se requiere ser administrador del sistema (derechos elevados).
 - Tener conexión a internet.
 - Contar con almenos 15 GB de Espació en disco para la construcción de los contenedores.
 
 **Preparativos:**
-- Primero por favor modifique el archivo ubicado en **.env** donde debera especificar el nombre de
+- Primero modifique el archivo ubicado en **.env** donde debera especificar el nombre de
 la base de datos, el usuario y la contraseña (estos se crearan automáticamente por el script de instalación) los valores
  a modificar para una instalación simple son:
   - MONGO_USERNAME=username
@@ -41,4 +40,4 @@ indique si de debe hacer el procedimiento en las varaibles: URL_LOGO, IMPLEMENTA
 **¿Como usar el script?**
 
 Para iniciar con la instalación debe ejecutar el archivo llamado **build.sh** el cual instalara todas
-las dependencias necesarias
+las dependencias necesarias 
