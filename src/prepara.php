@@ -53,7 +53,7 @@ try{
     if($_ENV['USAR_ACUSE_PERSONALIZADO'] == "1")
     if(!file_put_contents(
         './'.SISTEMA.'_reportes/templates/acuse.html',
-        $headerFileChange
+        $acuseFileChange
     )){
         throw new Exception('Error al copiar el archivo de acuse');
     }
@@ -85,13 +85,13 @@ try{
     }
     // Procedemos a crear la base de datos:
     {
-        $mongo = new \Racsohm\Pnd\MongoMange(
+       /* $mongo = new \Racsohm\Pnd\MongoMange(
             $_ENV['MONGO_HOSTNAME'],
             $_ENV['MONGO_DB'],
             $_ENV['MONGO_USERNAME'],
             $_ENV['MONGO_PASSWORD'],
             $_ENV['MONGO_PORT']
-        );
+        );*/
     }
 
 

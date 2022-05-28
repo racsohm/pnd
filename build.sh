@@ -60,7 +60,7 @@ echo \
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo apt-get install --yes docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose
 
 # Instalamos PHP
 sudo apt install --yes php-cli php-dev php-mongodb
@@ -95,11 +95,11 @@ read -r compilarimagenes
 if [[ "$compilarimagenes" == "S" ]]
 then
 #Iniciamos la construcción del contenedor:
-echo "$Blue Iniciando instancia BackeEnd"
+echo "$Blue ************* Iniciando instancia BackeEnd"
 cd SistemaDeclaraciones_backend
 sudo docker-compose -p declaraciones-backend up -d --build --force-recreate
 cd ..
-echo "$Blue Iniciando instancia FrontEnd"
+echo "$Blue ************* Iniciando instancia FrontEnd"
 cd SistemaDeclaraciones_frontend
 sudo docker-compose -p declaraciones-frontend up -d --build --force-recreate
 fi
