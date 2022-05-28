@@ -1,0 +1,5 @@
+#!/bin/sh
+mongo <<EOF
+use admin;
+db.createUser({user: "{user}" , pwd:  "{pwd}",  roles: [ { role: "dbOwner", db: "{db}" } ]});
+EOF

@@ -85,6 +85,18 @@ try{
     }
     // Procedemos a crear la base de datos:
     {
+        if($_ENV['CREAR_DB_MONGO']){
+            $strMongo = file_get_contents('dbCreateString.sami');
+            $mutate = str_replace(
+                ['{user}','{pwd}','{db}'],
+                [$_ENV['MONGO_USERNAME'],$_ENV['MONGO_PASSWORD'],$_ENV['MONGO_DB']],
+                $strMongo
+            );
+
+            file_put_contents('createdb.sh',$mutate);
+            chmod('createdb.sh',777);
+            exec("./createdb.sh");
+        }
        /* $mongo = new \Racsohm\Pnd\MongoMange(
             $_ENV['MONGO_HOSTNAME'],
             $_ENV['MONGO_DB'],
