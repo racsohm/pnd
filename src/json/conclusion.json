@@ -7,9 +7,10 @@
     "texto1_cuerpo_acuse": "{TEXTO1_CUERPO_ACUSE}",
     "texto2_cuerpo_acuse": "{TEXTO2_CUERPO_ACUSE}",
     "servidor_publico_recibe": {
-      "nombre": "Juan Perez Tellez",
-      "cargo": "Director general de Responsabilidades y Verificación Patrimonial"
-    }
+      "nombre": "{SERVIDOR_QUE_RECIBE_NOMBRE}",
+      "cargo": "{SERVIDOR_QUE_RECIBE_CARGO}"
+    },
+    "slogan_municipio": "{SLONGAN_MUNICIPIO}"
   },
   "declaracion": {
     "ente_publico": "{ENTE_PUBLICO}",
@@ -17,9 +18,10 @@
     "tipo_declaracion": "DECLARACIÓN DE CONCLUSIÓN",
     "ejercicio": "{EJERCICIO}",
     "servidor_publico_recibe": {
-      "nombre": "Juan Perez Tellez",
-      "cargo": "Director general de Responsabilidades y Verificación Patrimonial"
+      "nombre": "{SERVIDOR_QUE_RECIBE_NOMBRE}",
+      "cargo": "{SERVIDOR_QUE_RECIBE_CARGO}"
     },
-    "texto_declaratoria": "{TEXTO_DECLARATORIA}"
+    "texto_declaratoria": "{TEXTO_DECLARATORIA}",
+    "slogan_municipio": "{SLONGAN_MUNICIPIO}"
   }
 }
