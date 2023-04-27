@@ -15,8 +15,6 @@ try{
     $acuseFile = file_get_contents('./src/acuse.html');
 
 
-
-
     /**
      * Preparamos la image
      * que debe ser nombrado extrictamente como logo.jpeg para agregar al sistema.
@@ -31,6 +29,11 @@ try{
     $mime_type = $file_info->buffer($imgData);
 
     $src = 'data:'.$mime_type.';base64,'.base64_encode($imgData);
+
+    // Buscamos slogan y nombre del responsable que recibe dentro del acuse.html
+    $acuseFile = str_replace('{slogan}',$_ENV('SLONGAN_MUNICIPIO'),$acuseFile);
+    $acuseFile = str_replace('{resposableRecibe}',$_ENV('SERVIDOR_QUE_RECIBE_NOMBRE'),$acuseFile);
+    $acuseFile = str_replace('{cargoRecibe}',$_ENV('SERVIDOR_QUE_RECIBE_CARGO'),$acuseFile);
 
     $headerFileChange = str_replace('{logo}', $src, $headerFile);
     $acuseFileChange = str_replace('{logo}', $src, $acuseFile);
