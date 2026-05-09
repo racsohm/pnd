@@ -19,6 +19,8 @@ Basado en el [repositorio oficial PDNMX](https://github.com/PDNMX/SistemaDeclara
 - [Limpieza y reinstalación](#limpieza-y-reinstalación)
 - [Estructura de archivos](#estructura-de-archivos)
 - [Fixes aplicados](#fixes-aplicados)
+- [Producción con nginx + SSL](#producción-con-nginx--ssl) → [NGINX.md](NGINX.md)
+- [Bitácora técnica de problemas resueltos](AJUSTES.md)
 
 ---
 
@@ -199,28 +201,19 @@ Protocolo: https
 
 > Si usas nginx en puerto 80/443 para ocultar los puertos, configura los puertos como `80`/`443` y el wizard omitirá el número en la URL.
 
-### Configuración nginx sugerida
+### Producción con nginx + SSL
 
-```nginx
-server {
-    listen 80;
-    server_name declaraciones.midominio.gob.mx;
+Para exponer la plataforma en Internet con HTTPS (Let's Encrypt), consulta la guía completa:
 
-    # Frontend Angular
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
+**→ [NGINX.md](NGINX.md)** — reverse proxy con SSL, multi-instancia con subdominios, hardening, troubleshooting.
 
-    # Backend GraphQL (si se expone en el mismo dominio)
-    location /graphql {
-        proxy_pass http://localhost:3000/graphql;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
+Cubre:
+- Configuración nginx completa (un dominio con paths separados o subdominios por institución)
+- Decisión sobre `serverUrl` del frontend (mixed content)
+- Bindeo de puertos a `127.0.0.1` (no exponer backend HTTP directamente)
+- `client_max_body_size`, timeouts, WebSocket para subscriptions
+- HSTS, rate limiting, gzip
+- Solución a errores comunes: 502, 413, mixed content, CORS, certbot
 
 ---
 
