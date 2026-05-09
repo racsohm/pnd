@@ -1,0 +1,22 @@
+# ── Secretos: nunca subir credenciales ────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Repositorios clonados por los scripts ────────────────────
+database-test/
+SistemaDeclaraciones_backend/
+SistemaDeclaraciones_frontend/
+SistemaDeclaraciones_reportes/
+
+# ── Archivos generados por los scripts ────────────────────────
+docker-compose.yml
+docker-compose.shared.yml
+
+# ── Misceláneos del SO/editor ─────────────────────────────────
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
