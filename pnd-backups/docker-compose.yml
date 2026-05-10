@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════
+# pnd-backups — Panel de respaldos para instancias PND
+#
+# Se conecta a la red 'pdnmx_network' creada por setup.sh para llegar
+# a 'pdnmx-mongo' por DNS interno.
+# ═══════════════════════════════════════════════════════════════════
+services:
+  backups:
+    build: .
+    container_name: pnd-backups
+    restart: unless-stopped
+    mem_limit: 256m
+    env_file:
+      - .env
+    ports:
+      # IMPORTANTE: si BIND_LOCALHOST_ONLY=true en .env (default en
+      # producción), forzá 127.0.0.1 aquí. Para acceso público desde la
+      # IP del VPS, usá "${HOST_PORT:-8090}:80" sin prefijo.
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8090}:80"
+    volumes:
+      # Almacenamiento de respaldos (.gz). Persiste fuera del contenedor.
+      - ./storage-backups:/var/backups
+      # SQLite + sesiones + logs
+      - ./storage-app:/var/www/html/storage
+      - ./storage-db:/var/www/html/database/sqlite
+      # Auto-discovery de instancias: monta /opt en read-only para leer
+      # los .env de cada SistemaDeclaraciones_backend/.
+      - ${INSTANCES_HOST_PATH:-/opt}:/host/instances:ro
+    networks:
+      - pdnmx_network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  pdnmx_network:
+    external: true
