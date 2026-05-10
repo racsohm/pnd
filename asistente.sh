@@ -265,9 +265,20 @@ for entry in "${REPOS[@]}"; do
 done
 
 # ── Preparar directorios de MongoDB ──────────────────────────────
+# step-01.sh hace mkdir + chmod -R sobre mongodb/data. Si esos datos ya
+# existen (de una corrida previa de mongo) son propiedad del UID de
+# mongo dentro del contenedor — el host user no puede chmod-earlos.
+# Saltamos step-01.sh cuando hay datos; si toca correrlo, filtramos
+# el ruido de "Operation not permitted" que es benigno.
 if [ -d "database-test" ]; then
   pushd database-test > /dev/null
-  bash step-01.sh
+  if [ -n "$(ls -A mongodb/data/volume 2>/dev/null)" ]; then
+    success "mongodb/data ya tiene datos — saltar step-01.sh"
+  else
+    bash step-01.sh 2>&1 \
+      | grep -vE "Operation not permitted|Permission denied" \
+      || true
+  fi
   popd > /dev/null
 fi
 

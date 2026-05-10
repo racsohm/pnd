@@ -84,10 +84,21 @@ prepare_mongo_dirs() {
   header "Paso 3 — Preparar directorios de MongoDB"
 
   pushd database-test > /dev/null
-  bash step-01.sh
+  # step-01.sh hace mkdir + chmod -R. Si ya hay datos de un mongo
+  # previo, los archivos pertenecen al UID de mongo del contenedor y
+  # el host user no puede chmod-earlos. Saltamos cuando hay datos;
+  # si toca correrlo, filtramos errores de chmod (benignos — los
+  # mkdir sí surten efecto).
+  if [ -n "$(ls -A mongodb/data/volume 2>/dev/null)" ]; then
+    info "mongodb/data ya tiene datos — saltar step-01.sh"
+  else
+    bash step-01.sh 2>&1 \
+      | grep -vE "Operation not permitted|Permission denied" \
+      || true
+  fi
   popd > /dev/null
 
-  success "Directorios creados:"
+  success "Directorios listos:"
   success "  database-test/mongodb/data/volume/"
   success "  database-test/mongodb/data/log/"
 }
