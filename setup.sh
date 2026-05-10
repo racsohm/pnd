@@ -229,13 +229,21 @@ RUN echo '{ \
   } \
 }' > tsconfig.build.json
 
-# 3. Instalar (incluyendo devDeps para tsc/rimraf/copyfiles), compilar, podar
+# 3. Heap más grande para el compilador TypeScript (en VPS de 1 GB el
+#    default de V8 ~512 MB no alcanza; con swap puede tomar prestado).
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
+# 4. Instalar (incluyendo devDeps para tsc/rimraf/copyfiles), compilar, podar
 RUN npm install --include=dev \
     && npx rimraf ./build \
     && (npx tsc -p tsconfig.build.json || true) \
     && npx copyfiles -u 1 "src/**/*.graphql" build/ \
     && npx copyfiles -a -u 1 "src/**/*.json" build/ \
     && npm prune --production
+
+# 5. Limpiar NODE_OPTIONS del runtime — solo lo queríamos para el build.
+#    En runtime el backend respeta su propio NODE_OPTIONS del .env (200 MB).
+ENV NODE_OPTIONS=""
 
 CMD ["node", "build/server.js"]
 DOCKERFILE
@@ -261,6 +269,37 @@ patch_frontend_env() {
   success "environment.prod.ts actualizado:"
   success "  serverUrl → http://localhost:3000"
   success "  pageUrl   → http://localhost:8080/"
+}
+
+# ───────────────────────────────────────────────────────────────────
+# 6b. Patch al Dockerfile del frontend: subir el heap de Node para el
+#     build de Angular. En una VPS de 1 GB el default de V8 (~512 MB)
+#     revienta con "JavaScript heap out of memory" en `npm run build`.
+#     2048 MB + swap permite que el build termine.
+# ───────────────────────────────────────────────────────────────────
+patch_frontend_dockerfile() {
+  header "Paso 6b — Patch heap de Node en el Dockerfile del frontend"
+
+  local dockerfile="SistemaDeclaraciones_frontend/Dockerfile"
+  if [ ! -f "$dockerfile" ]; then
+    warn "$dockerfile no existe — saltar"
+    return
+  fi
+
+  if grep -q 'NODE_OPTIONS=--max-old-space-size' "$dockerfile"; then
+    success "Dockerfile del frontend ya tiene NODE_OPTIONS — saltar"
+    return
+  fi
+
+  # Insertar ENV justo antes del primer 'RUN npm run build'. ENV se
+  # aplica al RUN siguiente y queda en el scope correcto si el
+  # Dockerfile es multi-stage.
+  if grep -qE '^RUN npm run build' "$dockerfile"; then
+    sed -i '0,/^RUN npm run build/{s|^RUN npm run build|ENV NODE_OPTIONS=--max-old-space-size=2048\n&|}' "$dockerfile"
+    success "ENV NODE_OPTIONS=--max-old-space-size=2048 insertado antes de 'RUN npm run build'"
+  else
+    warn "No se encontró 'RUN npm run build' en $dockerfile — patch manual requerido"
+  fi
 }
 
 # ───────────────────────────────────────────────────────────────────
@@ -476,6 +515,7 @@ main() {
   create_env_files
   create_backend_dockerfile
   patch_frontend_env
+  patch_frontend_dockerfile
   create_shared_infra
   create_master_compose
   start_services

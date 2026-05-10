@@ -208,12 +208,18 @@ RUN echo '{ \
   } \
 }' > tsconfig.build.json
 
+# Heap más grande para tsc (1 GB VPS — V8 default ~512 MB no alcanza)
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
 RUN npm install --include=dev \
     && npx rimraf ./build \
     && (npx tsc -p tsconfig.build.json || true) \
     && npx copyfiles -u 1 "src/**/*.graphql" build/ \
     && npx copyfiles -a -u 1 "src/**/*.json" build/ \
     && npm prune --production
+
+# Limpiar heap grande del runtime — el backend usa NODE_OPTIONS del .env
+ENV NODE_OPTIONS=""
 
 CMD ["node", "build/server.js"]
 DOCKERFILE
@@ -226,6 +232,21 @@ sed -i \
    s|pageUrl: '.*'|pageUrl: 'http://localhost:${FRONTEND_PORT}/'|" \
   SistemaDeclaraciones_frontend/src/environments/environment.prod.ts
 success "serverUrl → http://localhost:${BACKEND_PORT}"
+
+# ── Patch heap de Node en el Dockerfile del frontend ──────────────
+# Angular build OOM en VPS de 1 GB sin esto.
+header "Patch heap de Node en el Dockerfile del frontend"
+FE_DOCKERFILE="SistemaDeclaraciones_frontend/Dockerfile"
+if [ -f "$FE_DOCKERFILE" ] && ! grep -q 'NODE_OPTIONS=--max-old-space-size' "$FE_DOCKERFILE"; then
+  if grep -qE '^RUN npm run build' "$FE_DOCKERFILE"; then
+    sed -i '0,/^RUN npm run build/{s|^RUN npm run build|ENV NODE_OPTIONS=--max-old-space-size=2048\n&|}' "$FE_DOCKERFILE"
+    success "ENV NODE_OPTIONS=--max-old-space-size=2048 insertado en $FE_DOCKERFILE"
+  else
+    warn "No se encontró 'RUN npm run build' en $FE_DOCKERFILE — patch manual requerido"
+  fi
+else
+  success "$FE_DOCKERFILE ya parcheado (o no existe)"
+fi
 
 # ── docker-compose.yml de la instancia ────────────────────────────
 header "Creando docker-compose.yml"
