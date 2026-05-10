@@ -7,8 +7,9 @@ FROM php:8.3-fpm-alpine
 
 # ── Paquetes del sistema ─────────────────────────────────────────
 RUN apk add --no-cache \
-        nginx supervisor bash curl rsync sqlite \
-        oniguruma-dev libzip-dev icu-dev libpng-dev tzdata \
+        nginx supervisor bash curl rsync tzdata \
+        sqlite sqlite-dev \
+        oniguruma-dev libzip-dev icu-dev \
         nodejs npm git \
     && docker-php-ext-install pdo pdo_sqlite mbstring zip intl bcmath
 
