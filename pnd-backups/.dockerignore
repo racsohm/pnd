@@ -4,13 +4,10 @@
 .env.example
 node_modules
 vendor
+# Volúmenes de runtime (no van a la imagen)
 storage-backups
 storage-app
 storage-db
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-storage/logs/*
 public/build
 *.md
 .idea

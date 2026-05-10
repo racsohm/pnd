@@ -39,11 +39,15 @@ COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
 
 COPY . .
-RUN composer dump-autoload --optimize \
+# Crear dirs ANTES de dump-autoload — package:discover (que corre como
+# post-script de composer) escribe en bootstrap/cache.
+RUN mkdir -p bootstrap/cache \
+        storage/framework/cache storage/framework/sessions storage/framework/views \
+        storage/logs database/sqlite \
+    && chown -R www-data:www-data storage bootstrap/cache database \
+    && composer dump-autoload --optimize \
     && npm run build \
-    && rm -rf node_modules \
-    && mkdir -p storage/framework/{cache,sessions,views} storage/logs database \
-    && chown -R www-data:www-data storage bootstrap/cache database
+    && rm -rf node_modules
 
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
