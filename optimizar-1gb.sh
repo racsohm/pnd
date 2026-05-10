@@ -130,6 +130,13 @@ ensure_swap() {
 
   if [ "$current_mb" -ge "$desired_mb" ]; then
     success "Swap ya cubre el objetivo: ${current_mb} MB ≥ ${desired_mb} MB"
+    # Aún así, asegurar que la entrada en fstab y el servicio OpenRC
+    # estén configurados — ejecuciones previas pueden haber omitido esto.
+    if ! grep -qF "$SWAP_FILE" /etc/fstab 2>/dev/null; then
+      info "Swap activo pero falta entrada en /etc/fstab — agregándola"
+      echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
+    fi
+    ensure_swap_persistence_alpine
     return
   fi
 
@@ -151,12 +158,53 @@ ensure_swap() {
   sudo mkswap "$SWAP_FILE" > /dev/null
   sudo swapon "$SWAP_FILE"
 
+  # Verificar que sí se activó: hay VPS basadas en OpenVZ donde swapon
+  # retorna 0 pero el kernel del host no monta swap del huésped.
+  if ! grep -qF "$SWAP_FILE" /proc/swaps 2>/dev/null; then
+    err "swapon corrió pero $SWAP_FILE no aparece en /proc/swaps.\n  Posibles causas:\n  • VPS basada en OpenVZ (no permite swap del huésped — pide al proveedor o cambia a KVM)\n  • Kernel sin soporte de swap (raro)\n  Diagnostica con: sudo swapon $SWAP_FILE 2>&1"
+  fi
+
   if ! grep -qF "$SWAP_FILE" /etc/fstab; then
     echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
     success "Persistencia agregada a /etc/fstab"
   fi
 
+  ensure_swap_persistence_alpine
   success "Swap activo: $(awk '/^SwapTotal:/ {print int($2 / 1024) " MB"}' /proc/meminfo)"
+}
+
+# ── 2b. Persistencia de swap en Alpine/OpenRC ─────────────────────
+# systemd procesa /etc/fstab automáticamente al boot, pero OpenRC NO.
+# En Alpine el servicio 'swap' debe estar en el runlevel 'boot' para
+# que `swapon -a` se ejecute al iniciar. Sin esto, después de un reboot
+# el swap aparece en fstab pero queda inactivo.
+ensure_swap_persistence_alpine() {
+  # Sólo aplica en distros con OpenRC (Alpine, Gentoo, Devuan opcional)
+  command -v rc-update >/dev/null 2>&1 || return 0
+
+  if [ -f /etc/init.d/swap ]; then
+    if sudo rc-update show boot 2>/dev/null | grep -qE '^[[:space:]]*swap\b'; then
+      success "Servicio OpenRC 'swap' ya está en runlevel boot"
+    else
+      sudo rc-update add swap boot 2>/dev/null \
+        && success "Servicio OpenRC 'swap' agregado al runlevel boot" \
+        || warn "No se pudo agregar 'swap' a boot — instalando fallback /etc/local.d/"
+    fi
+  else
+    # Fallback: script en /etc/local.d/ ejecutado por el servicio 'local'.
+    # Funciona en Alpines minimalistas que no traen /etc/init.d/swap.
+    warn "/etc/init.d/swap no existe — usando fallback /etc/local.d/swap.start"
+    sudo mkdir -p /etc/local.d
+    sudo tee /etc/local.d/swap.start > /dev/null <<'LOCAL_EOF'
+#!/bin/sh
+# Activa todas las entradas swap de /etc/fstab al boot.
+# Generado por optimizar-1gb.sh — PDNMX SistemaDeclaraciones.
+swapon -a 2>/dev/null
+LOCAL_EOF
+    sudo chmod +x /etc/local.d/swap.start
+    sudo rc-update add local default 2>/dev/null || true
+    success "Swap se activará al boot via /etc/local.d/swap.start"
+  fi
 }
 
 # ── 3. swappiness ────────────────────────────────────────────────
