@@ -8,8 +8,8 @@
   <form method="POST" action="{{ route('login.store') }}" class="space-y-4">
     @csrf
     <div>
-      <label class="block text-sm font-medium mb-1">Email</label>
-      <input name="email" type="email" required autofocus value="{{ old('email') }}"
+      <label class="block text-sm font-medium mb-1">Usuario</label>
+      <input name="email" type="text" required autofocus autocomplete="username" value="{{ old('email') }}"
              class="w-full rounded border-slate-300 focus:border-slate-500 focus:ring-slate-500" />
       @error('email')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
     </div>

@@ -1,12 +1,14 @@
 # Ajustes para que los contenedores funcionen
 
-Bitácora técnica de los 8 problemas que encontramos al desplegar `SistemaDeclaraciones` en Docker — síntoma, causa raíz, solución aplicada y cómo verificarlo.
+Bitácora técnica de los problemas que encontramos al desplegar `SistemaDeclaraciones` (y su panel `pnd-backups`) en Docker — síntoma, causa raíz, solución aplicada y cómo verificarlo.
 
-Útil para entender **por qué** los scripts (`setup.sh`, `asistente.sh`, `nueva-instancia.sh`) generan los archivos como lo hacen, y como referencia si algún día hay que portarlo a otra versión del código.
+Útil para entender **por qué** los scripts (`setup.sh`, `asistente.sh`, `nueva-instancia.sh`, `pnd-backups/setup.sh`) generan los archivos como lo hacen, y como referencia si algún día hay que portarlo a otra versión del código.
 
 ---
 
 ## Índice
+
+### SistemaDeclaraciones (backend / frontend / reportes)
 
 1. [`yarn: not found` durante el build del backend](#1-yarn-not-found-durante-el-build-del-backend)
 2. [`tsc: not found` después de cambiar a npm](#2-tsc-not-found-después-de-cambiar-a-npm)
@@ -17,7 +19,15 @@ Bitácora técnica de los 8 problemas que encontramos al desplegar `SistemaDecla
 7. [PDF de declaración devuelve `BAD REQUEST` en multi-instancia](#7-pdf-de-declaración-devuelve-bad-request-en-multi-instancia)
 8. [`Connection timeout` al enviar correo SMTP](#8-connection-timeout-al-enviar-correo-smtp)
 
-Y dos cuestiones operativas relacionadas:
+### Panel `pnd-backups` (Laravel)
+
+9. [HTTP 500 en `pnd-backups` por `APP_KEY` vacío](#9-http-500-en-pnd-backups-por-app_key-vacío)
+10. [`pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`](#10-pnd-backups-solo-accesible-desde-localhost--bind_address)
+11. [`APP_DEBUG` para inspeccionar errores 500 sin entrar al log](#11-app_debug-para-inspeccionar-errores-500-sin-entrar-al-log)
+12. [Login del panel exige formato email pero quiero usuario plano (`admin`)](#12-login-del-panel-exige-formato-email-pero-quiero-usuario-plano-admin)
+13. [Dashboard muestra "No se detectaron instancias en `/host/instances`"](#13-dashboard-muestra-no-se-detectaron-instancias-en-hostinstances)
+
+### Operativas
 
 - [Editar `.env` no surte efecto: `restart` vs `--force-recreate`](#editar-env-no-surte-efecto-restart-vs---force-recreate)
 - [Heredocs con `! sudo tee <<EOF` en Claude Code se cuelgan](#heredocs-con--sudo-tee-eof-en-claude-code-se-cuelgan)
@@ -345,6 +355,223 @@ SENDGRID_MAIL_SENDER=verificado@tudominio.com
 ```
 
 Estos servicios entregan correo via HTTPS (puerto 443), inmune a bloqueos de SMTP.
+
+---
+
+## 9. HTTP 500 en `pnd-backups` por `APP_KEY` vacío
+
+### Síntoma
+Levantás `pnd-backups` por primera vez con `bash setup.sh` y al abrir la URL del panel obtenés un **HTTP 500 sin más detalle**. Si activás debug ves un `MissingAppKeyException` o un `decrypt` que falla en el primer hit.
+
+### Causa raíz
+El `setup.sh` original creaba `.env` desde `.env.example` con `APP_KEY=` vacío. La idea era que el `entrypoint.sh` del contenedor llamara a `php artisan key:generate` en el primer arranque. **No funcionaba** por una sutileza del orden de carga de Laravel:
+
+1. `docker-compose.yml` usa `env_file: - .env` → inyecta `APP_KEY=""` como **variable de entorno del contenedor**.
+2. El entrypoint corre `php artisan key:generate` → escribe la key al `.env` del contenedor.
+3. El entrypoint corre `php artisan config:cache` → llama a `env('APP_KEY')`. Laravel da prioridad a `getenv()` sobre el `.env` file → lee `""` (la que inyectó docker) y **cachea la config con APP_KEY vacío**.
+
+A partir de ahí, cualquier request que use sesión/cookie cifrada explota con HTTP 500.
+
+### Solución
+Generar la key en `pnd-backups/setup.sh` **antes** del `docker compose build`, así el `.env` del host ya tiene una key válida y `env_file` la inyecta correcta:
+
+```bash
+APP_KEY="base64:$(openssl rand -base64 32)"
+sed -i "s|^APP_KEY=$|APP_KEY=$APP_KEY|" .env
+```
+
+Como defensa en profundidad, el `entrypoint.sh` también re-exporta `APP_KEY` desde `.env` después de un eventual `key:generate` (por si caemos por el path de fallback).
+
+### Aplicar a una instancia ya rota
+```bash
+cd /ruta/a/pnd-backups
+KEY="base64:$(openssl rand -base64 32)"
+sed -i "s|^APP_KEY=.*|APP_KEY=$KEY|" .env
+docker compose up -d --force-recreate backups
+docker compose exec backups php artisan config:clear
+docker compose exec backups php artisan config:cache
+```
+
+### Verificar
+```bash
+docker compose exec backups printenv APP_KEY
+# Debe imprimir: base64:....  (no vacío)
+
+curl -fsI http://127.0.0.1:8090/login
+# Debe devolver HTTP/1.1 200 OK
+```
+
+---
+
+## 10. `pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`
+
+### Síntoma
+El panel responde bien con `curl 127.0.0.1:8090` desde el host, pero al intentar abrirlo desde otra máquina (o desde la IP pública del VPS) la conexión cae con timeout o "connection refused".
+
+### Causa raíz
+Por defecto `BIND_ADDRESS=127.0.0.1` en el `.env`, y eso se inyecta literal al binding del puerto en `docker-compose.yml`:
+
+```yaml
+ports:
+  - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8090}:80"
+```
+
+Docker entonces solo escucha en la interfaz de loopback. Es el default para producción (la idea es exponer luego con nginx + TLS).
+
+### Solución
+Para **acceso público sin nginx** (rápido para depurar, **inseguro en HTTP plano** — login y descargas viajan en claro):
+
+```bash
+sed -i 's/^BIND_ADDRESS=.*/BIND_ADDRESS=0.0.0.0/' .env
+docker compose up -d --force-recreate backups
+```
+
+`restart` no alcanza porque el binding del puerto se fija al **crear** el contenedor (ver [`restart` vs `--force-recreate`](#editar-env-no-surte-efecto-restart-vs---force-recreate)).
+
+Para producción, el camino correcto sigue siendo `BIND_ADDRESS=127.0.0.1` + nginx por delante con Let's Encrypt (ver [`NGINX.md`](NGINX.md)).
+
+### Verificar
+```bash
+ss -tlnp | grep ":8090 "
+# Debe mostrar:  0.0.0.0:8090   (no 127.0.0.1:8090)
+
+curl -fsI http://<IP_publica>:8090/login
+# HTTP/1.1 200 OK
+```
+
+---
+
+## 11. `APP_DEBUG` para inspeccionar errores 500 sin entrar al log
+
+### Síntoma
+La app devuelve HTTP 500 con la página genérica de Laravel ("Server Error"). No hay forma de saber qué excepción saltó sin entrar al contenedor a tail-ear `storage/logs/laravel.log`.
+
+### Causa raíz
+`APP_DEBUG=false` (default de producción) hace que Laravel oculte el stacktrace y solo registre el error en log. Es el comportamiento correcto — `APP_DEBUG=true` filtra **variables de entorno completas** (incluido `DB_ROOT_PASSWORD`, `APP_KEY`, etc.) en cualquier excepción no manejada.
+
+### Solución (temporal, solo para depurar)
+```bash
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env
+docker compose up -d --force-recreate backups
+docker compose exec backups php artisan config:clear
+docker compose exec backups php artisan config:cache
+```
+
+**Revertir apenas se resuelve el bug**:
+```bash
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env
+docker compose up -d --force-recreate backups
+docker compose exec backups php artisan config:clear
+docker compose exec backups php artisan config:cache
+```
+
+### Alternativa sin exponer stacktrace
+Tail directo al log dentro del contenedor:
+```bash
+docker compose exec backups tail -f storage/logs/laravel.log
+```
+
+### Verificar
+Recargar la página que da 500 — ahora debería mostrar la pantalla de Whoops/Ignition con el stacktrace, archivo y línea.
+
+---
+
+## 12. Login del panel exige formato email pero quiero usuario plano (`admin`)
+
+### Síntoma
+Querés entrar como `admin` (sin dominio), pero el formulario de login rechaza el valor: "El campo debe ser una dirección de correo válida". Y aunque pongas el email correcto, validación HTML5 del `<input type="email">` lo bloquea antes de enviar.
+
+### Causa raíz
+La validación tenía la regla `'email' => ['required', 'email']` y el input era `type="email"`. La columna en DB se llama `email` pero **a nivel base de datos no exige formato** (`$table->string('email')->unique();`) — el constraint vivía solo en la capa Laravel + HTML.
+
+### Solución
+Cambios mínimos sin migrar la columna:
+
+- `LoginController.php`: `'email' => ['required', 'string']` (acepta cualquier identificador).
+- `login.blade.php`: label "Email" → "Usuario", `type="email"` → `type="text"`, `autocomplete="username"`.
+- `.env.example`: `ADMIN_EMAIL=admin` como default.
+
+### Aplicar a una instancia existente
+```bash
+cd /ruta/a/pnd-backups
+# 1) Cambiar el username deseado en .env
+sed -i 's/^ADMIN_EMAIL=.*/ADMIN_EMAIL=admin/' .env
+
+# 2) Rebuild — los .blade y el controller se copian a la imagen en build
+docker compose build backups
+docker compose up -d --force-recreate backups
+
+# 3) Renombrar el admin existente al nuevo identificador
+docker compose exec backups php artisan tinker --execute="\App\Models\User::where('role','admin')->update(['email' => 'admin']);"
+
+# 4) Limpiar y recachear vista/config
+docker compose exec backups php artisan view:clear
+docker compose exec backups php artisan config:clear
+docker compose exec backups php artisan config:cache
+```
+
+Si necesitás resetear el password al mismo tiempo:
+```bash
+docker compose exec backups php artisan tinker --execute="\App\Models\User::where('role','admin')->update(['email' => 'admin', 'password' => bcrypt('TuNuevoPass')]);"
+```
+
+### Verificar
+- Abrir `/login` → el label dice "Usuario" (no "Email") y el input no rechaza valores sin `@`.
+- Login con `admin` + password configurado → entra al dashboard.
+
+---
+
+## 13. Dashboard muestra "No se detectaron instancias en `/host/instances`"
+
+### Síntoma
+El panel `pnd-backups` arranca, podés iniciar sesión, pero el dashboard sale vacío con el mensaje:
+
+> No se detectaron instancias en `/host/instances`. Verifica que el volumen `INSTANCES_HOST_PATH` esté montado correctamente.
+
+### Causa raíz
+Hay **tres** puntos donde el discovery puede fallar en silencio (`InstanceDiscovery::scan()`):
+
+1. **`INSTANCES_HOST_PATH` apunta al path equivocado en el host**. El default del `docker-compose.yml` es `/opt`, pero `nueva-instancia.sh` crea las instancias en `$(dirname BASE_DIR)` (el directorio padre del repo PND, típicamente `/dataismo` si clonaste a `/dataismo/PND`). Resultado: el contenedor monta `/opt:/host/instances:ro` y `/opt` está vacío.
+2. **El path se monta pero los subdirectorios no tienen `SistemaDeclaraciones_backend/.env`** — discovery los filtra.
+3. **El `.env` del backend existe pero le faltan claves** (`MONGO_HOSTNAME`, `MONGO_USERNAME`, `MONGO_PASSWORD`, `MONGO_DB`) — discovery saltea esa instancia con `continue 2`.
+4. Bonus: **permisos** — si el directorio del host es `mode 700` y propiedad de un usuario distinto al `www-data` del contenedor, `is_readable()` devuelve falso.
+
+### Solución
+Antes era un mensaje genérico que no decía cuál de los 4 era el problema. Ahora `InstanceDiscovery::diagnose()` devuelve diagnóstico estructurado y el dashboard lo renderiza para admins:
+
+- Path montado dentro del contenedor.
+- Si el path existe y es legible.
+- Cuántos subdirectorios encontró.
+- Por cada subdir descartado, **el motivo exacto** ("falta `SistemaDeclaraciones_backend/.env`", "faltan claves en .env: MONGO_HOSTNAME, ...", "no legible (permisos)").
+
+### Diagnosticar desde la línea de comandos
+```bash
+# 1) ¿Qué path está montando el contenedor desde el host?
+grep '^INSTANCES_HOST_PATH=' /ruta/a/pnd-backups/.env
+docker compose exec backups ls -la /host/instances
+
+# 2) Si está vacío: verificar dónde están las instancias en el host
+ls -la /dataismo /opt 2>/dev/null
+
+# 3) Si hay subdirs pero faltan los .env: listar qué hay dentro
+docker compose exec backups bash -c 'for d in /host/instances/*/; do echo "=== $d ==="; ls -la "$d"SistemaDeclaraciones_backend/.env 2>&1; done'
+
+# 4) Si el .env existe: verificar que tenga las claves Mongo
+docker compose exec backups grep -E '^(MONGO_HOSTNAME|MONGO_USERNAME|MONGO_PASSWORD|MONGO_DB)=' /host/instances/<inst>/SistemaDeclaraciones_backend/.env
+```
+
+### Solución típica
+```bash
+cd /ruta/a/pnd-backups
+# Apuntar al directorio padre real de las instancias
+sed -i 's|^INSTANCES_HOST_PATH=.*|INSTANCES_HOST_PATH=/dataismo|' .env
+docker compose up -d --force-recreate backups
+```
+
+> El discovery toma efecto sin rebuild — la lista se calcula en cada hit del dashboard, no se cachea.
+
+### Verificar
+Recargar el dashboard como admin. Si sigue vacío, el panel de diagnóstico ahora explica exactamente qué falla y por dónde seguir.
 
 ---
 

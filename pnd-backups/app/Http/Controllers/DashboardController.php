@@ -11,7 +11,8 @@ class DashboardController extends Controller
     public function __invoke(InstanceDiscovery $discovery)
     {
         $user = Auth::user();
-        $instances = $discovery->all();
+        $diag = $discovery->diagnose();
+        $instances = $diag['instances'];
 
         // Si no es admin, restringe a su instancia
         if (! $user->isAdmin()) {
@@ -34,6 +35,9 @@ class DashboardController extends Controller
             ];
         }
 
-        return view('dashboard', compact('instances', 'stats'));
+        // Solo admins ven el panel de diagnóstico
+        $diagnostics = $user->isAdmin() ? $diag : null;
+
+        return view('dashboard', compact('instances', 'stats', 'diagnostics'));
     }
 }

@@ -91,7 +91,6 @@ class MongoBackupService
             '--archive=' . $absoluteFilePath,
             '--nsFrom=*.*',
             '--nsTo=' . $inst['mongo_db'] . '.*',
-            '--quiet',
         ];
         if ($drop) {
             $cmd[] = '--drop';
@@ -101,9 +100,18 @@ class MongoBackupService
         $process->run();
 
         if (! $process->isSuccessful()) {
+            // mongorestore escribe progreso/errores a stderr; combinamos
+            // ambas streams porque a veces el detalle útil cae en stdout.
+            $err = trim($process->getErrorOutput()."\n".$process->getOutput());
+            Log::error('mongorestore failed', [
+                'slug'      => $instanceSlug,
+                'archive'   => $absoluteFilePath,
+                'exit_code' => $process->getExitCode(),
+                'output'    => $err,
+            ]);
             throw new RuntimeException(
                 "mongorestore falló (exit {$process->getExitCode()}): ".
-                trim($process->getErrorOutput() ?: $process->getOutput())
+                ($err !== '' ? $err : 'sin salida')
             );
         }
     }

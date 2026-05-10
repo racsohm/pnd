@@ -13,29 +13,61 @@ class InstanceDiscovery
 {
     public function all(): array
     {
+        return $this->scan()['instances'];
+    }
+
+    /**
+     * Devuelve diagnóstico completo del discovery: instancias válidas y
+     * razones de rechazo para cada subdirectorio descartado. Pensado
+     * para mostrar al admin cuando el dashboard sale vacío.
+     */
+    public function diagnose(): array
+    {
+        return $this->scan();
+    }
+
+    private function scan(): array
+    {
         $base = (string) config('backups.instances_path');
         $sub  = (string) config('backups.instance_env_subpath');
 
-        if (! is_dir($base)) {
-            return [];
+        $diag = [
+            'base_path'  => $base,
+            'base_exists'=> is_dir($base),
+            'base_readable' => is_dir($base) && is_readable($base),
+            'subdirs'    => 0,
+            'rejected'   => [],   // [slug => motivo]
+            'instances'  => [],
+        ];
+
+        if (! $diag['base_exists'] || ! $diag['base_readable']) {
+            return $diag;
         }
 
+        $required = ['MONGO_HOSTNAME', 'MONGO_USERNAME', 'MONGO_PASSWORD', 'MONGO_DB'];
         $instances = [];
+
         foreach ((array) glob($base.'/*', GLOB_ONLYDIR) as $dir) {
+            $diag['subdirs']++;
+            $slug = basename($dir);
             $envFile = $dir.'/'.$sub;
-            if (! is_file($envFile) || ! is_readable($envFile)) {
+
+            if (! is_file($envFile)) {
+                $diag['rejected'][$slug] = "falta {$sub}";
                 continue;
             }
-            $env = $this->parseEnv($envFile);
-
-            $required = ['MONGO_HOSTNAME', 'MONGO_USERNAME', 'MONGO_PASSWORD', 'MONGO_DB'];
-            foreach ($required as $key) {
-                if (! isset($env[$key]) || $env[$key] === '') {
-                    continue 2;  // saltar instancia incompleta
-                }
+            if (! is_readable($envFile)) {
+                $diag['rejected'][$slug] = "{$sub} no legible (permisos)";
+                continue;
             }
 
-            $slug = basename($dir);
+            $env = $this->parseEnv($envFile);
+            $missing = array_filter($required, fn($k) => ! isset($env[$k]) || $env[$k] === '');
+            if ($missing) {
+                $diag['rejected'][$slug] = 'faltan claves en .env: '.implode(', ', $missing);
+                continue;
+            }
+
             $instances[$slug] = [
                 'slug'          => $slug,
                 'name'          => $slug,
@@ -49,7 +81,8 @@ class InstanceDiscovery
         }
 
         ksort($instances);
-        return array_values($instances);
+        $diag['instances'] = array_values($instances);
+        return $diag;
     }
 
     public function find(string $slug): ?array

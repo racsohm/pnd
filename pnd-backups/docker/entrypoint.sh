@@ -7,18 +7,63 @@ cd /var/www/html
 mkdir -p storage/framework/{cache,sessions,views} storage/logs database/sqlite /var/backups
 chown -R www-data:www-data storage bootstrap/cache database /var/backups
 
+# nginx corre como www-data (ver nginx.conf) pero en Alpine /var/lib/nginx
+# pertenece al usuario 'nginx', así que el buffer de uploads
+# (/var/lib/nginx/tmp/client_body) da EACCES en cada POST con body grande.
+chown -R www-data:www-data /var/lib/nginx
+
 # SQLite vacío si no existe
 DB_FILE="${DB_DATABASE:-/var/www/html/database/sqlite/database.sqlite}"
 if [ ! -f "$DB_FILE" ]; then
   install -o www-data -g www-data -m 644 /dev/null "$DB_FILE"
 fi
 
-# Generar APP_KEY si está vacío
-if [ -z "${APP_KEY:-}" ] || [ "${APP_KEY:-}" = "" ]; then
-  if grep -qE '^APP_KEY=$' .env 2>/dev/null; then
-    php artisan key:generate --force --no-interaction || true
-  fi
+# ── APP_KEY ─────────────────────────────────────────────────────
+# La APP_KEY llega por env_file → variable de proceso. Puede venir
+# vacía, entre comillas o con espacios; normalizamos antes de decidir.
+# Si tras todo sigue vacía, fallamos rápido — preferible no arrancar
+# que servir 500 a cada POST por MissingAppKeyException.
+#
+# Fallback persistente: storage/.app_key. storage está bind-mounted
+# al host, así que la key sobrevive a 'docker compose up --force-recreate'.
+normalize_key() {
+  local v="${1:-}"
+  # trim espacios
+  v="${v#"${v%%[![:space:]]*}"}"
+  v="${v%"${v##*[![:space:]]}"}"
+  # quita un par de comillas circundantes (dobles o simples)
+  if [ "${v#\"}" != "$v" ] && [ "${v%\"}" != "$v" ]; then v="${v#\"}"; v="${v%\"}"; fi
+  if [ "${v#\'}" != "$v" ] && [ "${v%\'}" != "$v" ]; then v="${v#\'}"; v="${v%\'}"; fi
+  printf '%s' "$v"
+}
+
+APP_KEY="$(normalize_key "${APP_KEY:-}")"
+KEY_CACHE="storage/.app_key"
+
+if [ -z "$APP_KEY" ] && [ -s "$KEY_CACHE" ]; then
+  APP_KEY="$(normalize_key "$(cat "$KEY_CACHE")")"
+  echo "[entrypoint] APP_KEY recuperada de $KEY_CACHE"
 fi
+
+if [ -z "$APP_KEY" ]; then
+  APP_KEY="base64:$(openssl rand -base64 32)"
+  printf '%s' "$APP_KEY" > "$KEY_CACHE"
+  chown www-data:www-data "$KEY_CACHE"
+  chmod 600 "$KEY_CACHE"
+  echo "[entrypoint] APP_KEY generada y cacheada en $KEY_CACHE"
+  echo "[entrypoint] Para sobrevivir a 'docker compose down -v', persistila también en el .env del host."
+fi
+
+export APP_KEY
+
+if [ -z "$APP_KEY" ]; then
+  echo "[entrypoint] ERROR: APP_KEY sigue vacía tras todos los fallbacks. Abortando." >&2
+  exit 1
+fi
+
+# Invalidar cache de config de arranques previos (puede haberse
+# congelado con APP_KEY vacía). config:cache se regenera abajo.
+php artisan config:clear || true
 
 # Migraciones + seed admin
 php artisan migrate --force --no-interaction || true

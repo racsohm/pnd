@@ -27,7 +27,11 @@ COPY docker/php.ini         /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/www.conf        /usr/local/etc/php-fpm.d/zz-www.conf
 COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
 COPY docker/entrypoint.sh   /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    # nginx corre como www-data; el dir donde bufferiza uploads
+    # pertenece al usuario 'nginx' en Alpine, así que se lo damos a
+    # www-data para evitar EACCES en POST con body grande.
+    && chown -R www-data:www-data /var/lib/nginx
 
 # ── App ──────────────────────────────────────────────────────────
 WORKDIR /var/www/html

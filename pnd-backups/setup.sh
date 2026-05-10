@@ -36,14 +36,29 @@ success "Docker + red OK"
 header "2) Configurando .env"
 if [ ! -f .env ]; then
   cp .env.example .env
-  # Generar password aleatoria si quedó el default
+  # Password admin aleatoria
   RAND_PASS=$(openssl rand -hex 12)
   sed -i "s|ADMIN_PASSWORD=cambia-esto-por-favor|ADMIN_PASSWORD=$RAND_PASS|" .env
-  success ".env creado (password admin generado)."
+  # APP_KEY: hay que generarla acá (no en el entrypoint), porque
+  # env_file inyecta APP_KEY="" al contenedor y getenv() gana sobre
+  # el .env file en config:cache → la key del entrypoint se ignora.
+  APP_KEY="base64:$(openssl rand -base64 32)"
+  sed -i "s|^APP_KEY=$|APP_KEY=$APP_KEY|" .env
+  success ".env creado (password admin y APP_KEY generados)."
   warn "Password admin: $RAND_PASS"
   warn "Guárdalo ya — no se volverá a mostrar."
 else
   info ".env ya existe — no se sobrescribe."
+  # Backfill si APP_KEY está vacío. Detecta también APP_KEY="", APP_KEY=''
+  # y variantes con espacios, no solo el match literal de antes.
+  CURRENT_KEY=$(grep -m1 '^APP_KEY=' .env 2>/dev/null \
+    | sed -e 's/^APP_KEY=//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+          -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/" || true)
+  if [ -z "$CURRENT_KEY" ]; then
+    APP_KEY="base64:$(openssl rand -base64 32)"
+    sed -i "s|^APP_KEY=.*|APP_KEY=$APP_KEY|" .env
+    warn "APP_KEY estaba vacío en .env existente — generada ahora."
+  fi
 fi
 
 header "3) Construyendo imagen"
