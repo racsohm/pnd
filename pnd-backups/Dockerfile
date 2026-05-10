@@ -36,7 +36,9 @@ RUN composer install --no-dev --no-interaction --no-progress --prefer-dist \
     || composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts
 
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev || npm install --omit=dev
+# Sí instalamos devDeps porque vite/tailwind solo se usan para build;
+# después del 'npm run build' borramos node_modules.
+RUN npm ci || npm install
 
 COPY . .
 # Crear dirs ANTES de dump-autoload — package:discover (que corre como
