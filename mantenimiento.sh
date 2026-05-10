@@ -129,13 +129,23 @@ Ejemplos:
 EOF
 }
 
+# Validar que una URL trae scheme http:// o https://. Sin scheme, los
+# navegadores la interpretan como path relativo y se duplica el host
+# en links/forms — bug clásico que costó tiempo en producción.
+_validate_url_scheme() {
+  local url=$1 flag=$2
+  if ! echo "$url" | grep -qE '^https?://'; then
+    err "$flag espera URL con scheme — recibí: $url\n  Usa: http://...  o  https://...\n  Sin scheme, el navegador trata la cadena como path y duplica el host."
+  fi
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --instance)       INSTANCE="$2"; shift 2 ;;
-    --host)           NEW_HOST="$2"; shift 2 ;;
-    --nginx)          NEW_HOST="$2"; NGINX_MODE=true; shift 2 ;;
-    --server-url)     NEW_SERVER_URL_OVERRIDE="$2"; shift 2 ;;
-    --page-url)       NEW_PAGE_URL_OVERRIDE="$2"; shift 2 ;;
+    --host)           _validate_url_scheme "$2" "--host"; NEW_HOST="$2"; shift 2 ;;
+    --nginx)          _validate_url_scheme "$2" "--nginx"; NEW_HOST="$2"; NGINX_MODE=true; shift 2 ;;
+    --server-url)     _validate_url_scheme "$2" "--server-url"; NEW_SERVER_URL_OVERRIDE="$2"; shift 2 ;;
+    --page-url)       _validate_url_scheme "$2" "--page-url"; NEW_PAGE_URL_OVERRIDE="$2"; shift 2 ;;
     --smtp-host)      NEW_SMTP_HOST="$2"; SET_SMTP_HOST=true; shift 2 ;;
     --smtp-port)      NEW_SMTP_PORT="$2"; SET_SMTP_PORT=true; shift 2 ;;
     --smtp-secure)    NEW_SMTP_SECURE="$2"; SET_SMTP_SECURE=true; shift 2 ;;
@@ -243,8 +253,21 @@ CUR_SMTP_PASSWORD=$(_read_env "$BACKEND_ENV" SMTP_PASSWORD)
 CUR_SMTP_FROM=$(_read_env "$BACKEND_ENV" SMTP_FROM_EMAIL)
 CUR_FE_RESET_URL=$(_read_env "$BACKEND_ENV" FE_RESET_PASSWORD_URL)
 
+# Detectar si las URLs actuales no tienen scheme (síntoma del bug clásico)
+URLS_MISSING_SCHEME=false
+for u in "$CUR_SERVER_URL" "$CUR_PAGE_URL" "$CUR_FE_RESET_URL"; do
+  [ -z "$u" ] && continue
+  echo "$u" | grep -qE '^https?://' || URLS_MISSING_SCHEME=true
+done
+
 show_current() {
   header "Configuración actual"
+  if $URLS_MISSING_SCHEME; then
+    warn "Una o más URLs no tienen scheme (http:// o https://)"
+    warn "Esto causa que el navegador trate la cadena como path → host duplicado en links/forms"
+    warn "Corrige con: bash mantenimiento.sh --server-url https://... --page-url https://..."
+    echo ""
+  fi
   echo -e "  ${BOLD}Host / URLs${NC}"
   echo "    Host base:                   $CUR_HOST"
   echo "    serverUrl  (frontend → API): $CUR_SERVER_URL"
@@ -317,8 +340,12 @@ if [ "$ANY_FLAG" = false ] && [ "$NON_INTERACTIVE" = false ]; then
   case "$menu" in
     1|3)
       header "Cambio de host"
+      echo "  La URL debe traer scheme: http://...  o  https://..."
       ask "URL pública (vacío = mantener)" "$CUR_HOST"
-      [ "$REPLY" != "$CUR_HOST" ] && NEW_HOST="$REPLY"
+      if [ "$REPLY" != "$CUR_HOST" ]; then
+        _validate_url_scheme "$REPLY" "URL pública"
+        NEW_HOST="$REPLY"
+      fi
       ;;
   esac
 
