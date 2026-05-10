@@ -15,7 +15,8 @@ BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 info()    { echo -e "${BLUE}[INFO]${NC}   $*"; }
 success() { echo -e "${GREEN}[OK]${NC}     $*"; }
 warn()    { echo -e "${YELLOW}[AVISO]${NC}  $*"; }
-header()  { echo -e "\n${BOLD}${CYAN}$*${NC}"; echo -e "${CYAN}$(echo "$*" | tr '[:print:]' '─')${NC}"; }
+header()  { echo -e "\n${BOLD}${CYAN}$*${NC}"; \
+            echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"; }
 
 # Pregunta con valor por defecto: ask "Pregunta" "default" → respuesta en $REPLY
 ask() {
@@ -44,18 +45,23 @@ BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 # ── Detección automática de puertos ──────────────────────────────
 
 # Puertos ocupados: instancias PDNMX existentes + SO + Docker
+# Cada pipeline termina en `|| true` porque grep/find pueden salir con 1
+# cuando no hay coincidencias (típico en una VPS recién instalada sin .env
+# y sin contenedores aún), y bajo `set -euo pipefail` eso mata el script.
+# Usamos `find -exec` en lugar de `find | xargs grep` para evitar el caso
+# de busybox xargs corriendo grep sin archivos.
 _used_ports() {
   # Instancias existentes (leen sus .env)
-  find "$(dirname "$BASE_DIR")" -maxdepth 2 -name ".env" 2>/dev/null \
-    | xargs grep -h -E '^(BACKEND_PORT|FRONTEND_PORT)=' 2>/dev/null \
-    | cut -d= -f2
+  find "$(dirname "$BASE_DIR")" -maxdepth 2 -name ".env" \
+    -exec grep -h -E '^(BACKEND_PORT|FRONTEND_PORT)=' {} + 2>/dev/null \
+    | cut -d= -f2 || true
 
   # Puertos del sistema operativo
-  ss -tlnp 2>/dev/null | awk 'NR>1{print $4}' | grep -oE '[0-9]+$'
+  ss -tlnp 2>/dev/null | awk 'NR>1{print $4}' | grep -oE '[0-9]+$' || true
 
   # Puertos expuestos en Docker
   sudo docker ps --format '{{.Ports}}' 2>/dev/null \
-    | grep -oE '0\.0\.0\.0:[0-9]+->' | grep -oE ':[0-9]+' | tr -d ':'
+    | grep -oE '0\.0\.0\.0:[0-9]+->' | grep -oE ':[0-9]+' | tr -d ':' || true
 }
 
 _port_free() {

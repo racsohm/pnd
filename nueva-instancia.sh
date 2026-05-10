@@ -34,13 +34,15 @@ BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTANCE_DIR="$(dirname "$BASE_DIR")/${INSTANCE_NAME}"
 
 # ── Detección automática de puertos ──────────────────────────────
+# Cada pipeline termina en `|| true`: bajo set -euo pipefail un grep sin
+# coincidencias (típico en busybox/Alpine fresh) mataría el script.
 _used_ports() {
-  find "$(dirname "$BASE_DIR")" -maxdepth 2 -name ".env" 2>/dev/null \
-    | xargs grep -h -E '^(BACKEND_PORT|FRONTEND_PORT)=' 2>/dev/null \
-    | cut -d= -f2
-  ss -tlnp 2>/dev/null | awk 'NR>1{print $4}' | grep -oE '[0-9]+$'
+  find "$(dirname "$BASE_DIR")" -maxdepth 2 -name ".env" \
+    -exec grep -h -E '^(BACKEND_PORT|FRONTEND_PORT)=' {} + 2>/dev/null \
+    | cut -d= -f2 || true
+  ss -tlnp 2>/dev/null | awk 'NR>1{print $4}' | grep -oE '[0-9]+$' || true
   sudo docker ps --format '{{.Ports}}' 2>/dev/null \
-    | grep -oE '0\.0\.0\.0:[0-9]+->' | grep -oE ':[0-9]+' | tr -d ':'
+    | grep -oE '0\.0\.0\.0:[0-9]+->' | grep -oE ':[0-9]+' | tr -d ':' || true
 }
 
 _port_free() { ! _used_ports | sort -un | grep -qx "$1"; }
