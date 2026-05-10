@@ -416,6 +416,21 @@ sed -i \
   SistemaDeclaraciones_frontend/src/environments/environment.prod.ts
 success "Frontend configurado → ${BACKEND_URL}"
 
+# ── Patch heap de Node en el Dockerfile del frontend ──────────────
+# En VPS de 1 GB, V8 detecta poca RAM y limita el heap a ~50% (~480 MB).
+# Angular build necesita ~1.5 GB. Sin esto, OOM en `RUN npm run build`.
+FE_DOCKERFILE="SistemaDeclaraciones_frontend/Dockerfile"
+if [ -f "$FE_DOCKERFILE" ] && ! grep -q 'NODE_OPTIONS=--max-old-space-size' "$FE_DOCKERFILE"; then
+  if grep -qE '^RUN npm run build' "$FE_DOCKERFILE"; then
+    sed -i '0,/^RUN npm run build/{s|^RUN npm run build|ENV NODE_OPTIONS=--max-old-space-size=2048\n&|}' "$FE_DOCKERFILE"
+    success "ENV NODE_OPTIONS=2048 insertado en $FE_DOCKERFILE"
+  else
+    warn "No se encontró 'RUN npm run build' en $FE_DOCKERFILE — patch manual"
+  fi
+else
+  success "Dockerfile del frontend ya parcheado (o no existe)"
+fi
+
 # ── Dockerfile.fixed del backend ──────────────────────────────────
 cat > SistemaDeclaraciones_backend/Dockerfile.fixed <<'DOCKERFILE'
 FROM node:18-alpine
@@ -438,12 +453,18 @@ RUN echo '{ \
   } \
 }' > tsconfig.build.json
 
+# Heap más grande para tsc (1 GB VPS — V8 default ~480 MB no alcanza)
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
 RUN npm install --include=dev \
     && npx rimraf ./build \
     && (npx tsc -p tsconfig.build.json || true) \
     && npx copyfiles -u 1 "src/**/*.graphql" build/ \
     && npx copyfiles -a -u 1 "src/**/*.json" build/ \
     && npm prune --production
+
+# Limpiar heap grande del runtime — el backend usa NODE_OPTIONS del .env
+ENV NODE_OPTIONS=""
 
 CMD ["node", "build/server.js"]
 DOCKERFILE
