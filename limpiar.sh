@@ -14,7 +14,13 @@
 #   • setup.sh
 #   • asistente.sh
 #   • nueva-instancia.sh
+#   • optimizar-1gb.sh
+#   • prep-alpine.sh
 #   • limpiar.sh  ← este mismo script
+#
+# NO toca cambios a nivel de host (swap, vm.swappiness, dockerd) hechos
+# por optimizar-1gb.sh / prep-alpine.sh — esos persisten para futuras
+# reinstalaciones.
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -49,7 +55,10 @@ echo -e "${BOLD}Se conservarán:${NC}"
 echo -e "  ${GREEN}✓${NC} setup.sh"
 echo -e "  ${GREEN}✓${NC} asistente.sh"
 echo -e "  ${GREEN}✓${NC} nueva-instancia.sh"
+echo -e "  ${GREEN}✓${NC} optimizar-1gb.sh"
+echo -e "  ${GREEN}✓${NC} prep-alpine.sh"
 echo -e "  ${GREEN}✓${NC} limpiar.sh"
+echo -e "  ${GREEN}✓${NC} swap + vm.swappiness + dockerd (cambios a nivel host)"
 echo ""
 
 # ── Confirmación ──────────────────────────────────────────────────

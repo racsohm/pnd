@@ -293,6 +293,7 @@ services:
     image: mongodb/mongodb-community-server:latest
     container_name: pdnmx-mongo
     restart: always
+    mem_limit: 512m
     environment:
       MONGODB_INITDB_ROOT_USERNAME: ${DB_ROOT_USER}
       MONGODB_INITDB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
@@ -314,6 +315,7 @@ services:
       context: ./SistemaDeclaraciones_reportes
     container_name: pdnmx-reports
     restart: unless-stopped
+    mem_limit: 150m
     environment:
       PORT: "3001"
       API_KEY: ${REPORTS_API_KEY}
@@ -327,6 +329,7 @@ services:
         - NODE_ENV=production
     container_name: pdnmx-backend
     restart: unless-stopped
+    mem_limit: 400m
     depends_on:
       mongo:
         condition: service_healthy
@@ -343,6 +346,7 @@ services:
       context: ./SistemaDeclaraciones_frontend
     container_name: pdnmx-frontend
     restart: always
+    mem_limit: 64m
     ports:
       - "8080:80"
     depends_on:
@@ -455,6 +459,10 @@ print_summary() {
   echo ""
   echo -e "${YELLOW}Nota:${NC} Para hacer el sistema permanente con HTTPS,"
   echo -e "configura un proxy NGINX según el manual de instalación."
+  echo ""
+  echo -e "${YELLOW}VPS de 1 GB de RAM:${NC} ejecuta ${BOLD}bash optimizar-1gb.sh${NC} para"
+  echo -e "agregar swap, capar el cache de Mongo y limitar la memoria de cada"
+  echo -e "contenedor. Indispensable si vas a correr varias instancias."
   echo ""
 }
 
