@@ -145,8 +145,27 @@ SWAP_SIZE_GB=2 bash optimizar-1gb.sh   # personalizar tamaño de swap
 
 Ver la sección [Despliegue en VPS de 1 GB de RAM](#despliegue-en-vps-de-1-gb-de-ram) para el contexto completo.
 
+### `mantenimiento.sh`
+Cambios in-situ de **host (URL pública)** y/o **configuración SMTP** sin tener que rehacer la instalación. Detecta automáticamente la instancia, hace backup de los archivos antes de editar, y reinicia solo lo necesario:
+
+- Cambio de host → rebuild de `webapp` (la URL se compila INTO el bundle Angular) + force-recreate de `app`
+- Cambio de SMTP → solo force-recreate de `app` (relee el `.env`)
+
+Si pasas un flag, lo cambia. Si no lo pasas, lo deja como está.
+
+```bash
+bash mantenimiento.sh                          # interactivo (menú)
+bash mantenimiento.sh --show                   # ver configuración actual
+bash mantenimiento.sh --dry-run --host https://nuevo.gob.mx
+bash mantenimiento.sh --instance pnd_tecali \
+     --host https://decl.tecali.gob.mx \
+     --smtp-host mail.dataismo.mx --smtp-user notif@dataismo.mx \
+     --smtp-password 'secret' --smtp-from notif@dataismo.mx
+bash mantenimiento.sh --disable-smtp           # desactivar correos
+```
+
 ### `limpiar.sh`
-Borra todos los contenedores, imágenes, la red Docker, los repositorios clonados y los archivos generados. Conserva únicamente los 4 scripts.
+Borra todos los contenedores, imágenes, la red Docker, los repositorios clonados y los archivos generados. Conserva únicamente los scripts `.sh`.
 
 ```bash
 bash limpiar.sh
@@ -523,6 +542,7 @@ PND/
 ├── nueva-instancia.sh                Crear instancias adicionales
 ├── prep-alpine.sh                    Preparar VPS Alpine (apk + dockerd)
 ├── optimizar-1gb.sh                  Tuning para VPS de 1 GB de RAM
+├── mantenimiento.sh                  Cambiar host/SMTP post-instalación
 ├── limpiar.sh                        Limpieza total
 │
 ├── docker-compose.yml                Servicios por instancia (generado)

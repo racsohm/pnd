@@ -16,6 +16,7 @@
 #   • nueva-instancia.sh
 #   • optimizar-1gb.sh
 #   • prep-alpine.sh
+#   • mantenimiento.sh
 #   • limpiar.sh  ← este mismo script
 #
 # NO toca cambios a nivel de host (swap, vm.swappiness, dockerd) hechos
@@ -57,6 +58,7 @@ echo -e "  ${GREEN}✓${NC} asistente.sh"
 echo -e "  ${GREEN}✓${NC} nueva-instancia.sh"
 echo -e "  ${GREEN}✓${NC} optimizar-1gb.sh"
 echo -e "  ${GREEN}✓${NC} prep-alpine.sh"
+echo -e "  ${GREEN}✓${NC} mantenimiento.sh"
 echo -e "  ${GREEN}✓${NC} limpiar.sh"
 echo -e "  ${GREEN}✓${NC} swap + vm.swappiness + dockerd (cambios a nivel host)"
 echo ""
