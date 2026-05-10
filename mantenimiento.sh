@@ -75,6 +75,7 @@ SHOW_ONLY=false
 DRY_RUN=false
 NO_RESTART=false
 NON_INTERACTIVE=false
+FORCE_REBUILD=false
 
 usage() {
   cat <<EOF
@@ -108,6 +109,10 @@ Modo:
   --show                   Mostrar config actual y salir
   --dry-run                Mostrar qué cambiaría sin aplicar
   --no-restart             No reiniciar contenedores tras cambios
+  --force-rebuild          Forzar rebuild de webapp + recreate de app aunque
+                           no haya cambios detectados. Útil cuando editaste
+                           archivos manualmente y solo quieres reconstruir.
+                           Alias: --rebuild
   --yes, -y                No pedir confirmación
   --help, -h               Esta ayuda
 
@@ -142,6 +147,7 @@ while [ $# -gt 0 ]; do
     --show)           SHOW_ONLY=true; shift ;;
     --dry-run)        DRY_RUN=true; shift ;;
     --no-restart)     NO_RESTART=true; shift ;;
+    --force-rebuild|--rebuild) FORCE_REBUILD=true; shift ;;
     --yes|-y)         NON_INTERACTIVE=true; shift ;;
     --help|-h)        usage; exit 0 ;;
     *)                err "Argumento desconocido: $1\n  Usa --help para ver opciones." ;;
@@ -268,6 +274,7 @@ ANY_FLAG=false
 [ -n "$NEW_HOST" ] && ANY_FLAG=true
 [ -n "$NEW_SERVER_URL_OVERRIDE" ] && ANY_FLAG=true
 [ -n "$NEW_PAGE_URL_OVERRIDE" ] && ANY_FLAG=true
+$FORCE_REBUILD   && ANY_FLAG=true
 $SET_SMTP_HOST   && ANY_FLAG=true
 $SET_SMTP_PORT   && ANY_FLAG=true
 $SET_SMTP_SECURE && ANY_FLAG=true
@@ -380,8 +387,13 @@ check_smtp_change "$CUR_SMTP_PASSWORD" "$NEW_SMTP_PASSWORD" "$SET_SMTP_PASSWORD"
 check_smtp_change "$CUR_SMTP_FROM"     "$NEW_SMTP_FROM"     "$SET_SMTP_FROM"
 
 if [ "$HOST_CHANGED" = false ] && [ "$SMTP_CHANGED" = false ]; then
-  warn "Ningún cambio detectado — saliendo."
-  exit 0
+  if $FORCE_REBUILD; then
+    info "Sin cambios en archivos — pero --force-rebuild solicitado, se reconstruirá."
+  else
+    warn "Ningún cambio detectado — saliendo."
+    info "Usa --force-rebuild para reconstruir aunque no haya cambios."
+    exit 0
+  fi
 fi
 
 # ── Construir URLs nuevas (si cambia host) ───────────────────────
@@ -451,9 +463,11 @@ fi
 
 echo ""
 echo -e "  ${BOLD}Acciones tras cambios:${NC}"
-$HOST_CHANGED && echo "    • Rebuild de la imagen webapp (URL en bundle Angular)"
-$HOST_CHANGED && echo "    • Force-recreate de webapp"
-{ $HOST_CHANGED || $SMTP_CHANGED; } && echo "    • Force-recreate de app (relee .env)"
+{ $HOST_CHANGED || $FORCE_REBUILD; } && echo "    • Rebuild de la imagen webapp (URL en bundle Angular)"
+{ $HOST_CHANGED || $FORCE_REBUILD; } && echo "    • Force-recreate de webapp"
+{ $HOST_CHANGED || $SMTP_CHANGED || $FORCE_REBUILD; } && echo "    • Force-recreate de app (relee .env)"
+$FORCE_REBUILD && [ "$HOST_CHANGED" = false ] && [ "$SMTP_CHANGED" = false ] \
+  && echo "      [--force-rebuild] — sin cambios en archivos, solo se reconstruyen contenedores"
 $NO_RESTART && echo "    • [--no-restart] — no se reiniciarán contenedores"
 
 if [ "$DRY_RUN" = true ]; then
@@ -505,22 +519,30 @@ if $SMTP_CHANGED; then
 fi
 
 # ── Restart inteligente ──────────────────────────────────────────
+NEED_REBUILD_WEBAPP=false
+NEED_RECREATE_APP=false
+{ $HOST_CHANGED || $FORCE_REBUILD; }                  && NEED_REBUILD_WEBAPP=true
+{ $HOST_CHANGED || $SMTP_CHANGED || $FORCE_REBUILD; } && NEED_RECREATE_APP=true
+
 if [ "$NO_RESTART" = true ]; then
   warn "[--no-restart] — los cambios no surten efecto hasta que rearmes los contenedores manualmente:"
-  $HOST_CHANGED && echo "    sudo docker compose -p $INSTANCE_NAME up --build -d --force-recreate webapp app"
-  $SMTP_CHANGED && ! $HOST_CHANGED && echo "    sudo docker compose -p $INSTANCE_NAME up -d --force-recreate app"
+  if $NEED_REBUILD_WEBAPP; then
+    echo "    sudo docker compose -p $INSTANCE_NAME up --build -d --force-recreate webapp app"
+  elif $NEED_RECREATE_APP; then
+    echo "    sudo docker compose -p $INSTANCE_NAME up -d --force-recreate app"
+  fi
   exit 0
 fi
 
 header "Reiniciando contenedores"
 cd "$INSTANCE_DIR"
 
-if $HOST_CHANGED; then
+if $NEED_REBUILD_WEBAPP; then
   info "Rebuild de webapp (Angular bakea la URL al compilar)..."
   sudo docker compose -p "$INSTANCE_NAME" up --build -d --force-recreate webapp
 fi
 
-if $HOST_CHANGED || $SMTP_CHANGED; then
+if $NEED_RECREATE_APP; then
   info "Force-recreate de app para que relea el .env..."
   sudo docker compose -p "$INSTANCE_NAME" up -d --force-recreate app
 fi
@@ -532,7 +554,7 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo ""
 echo "  Verifica:"
 echo "    sudo docker compose -p $INSTANCE_NAME ps"
-$HOST_CHANGED && echo "    curl -sI ${NEW_PAGE_URL%/} | head -3"
+{ $HOST_CHANGED || $FORCE_REBUILD; } && echo "    curl -sI ${NEW_PAGE_URL%/} | head -3"
 $SMTP_CHANGED && echo "    sudo docker compose -p $INSTANCE_NAME logs app | grep -i smtp"
 echo ""
 echo "  Backups quedaron en ${INSTANCE_DIR}/SistemaDeclaraciones_*/.env.bak.*"
