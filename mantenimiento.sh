@@ -60,6 +60,9 @@ _backup() {
 # ── Parse args ───────────────────────────────────────────────────
 INSTANCE=""
 NEW_HOST=""
+NEW_SERVER_URL_OVERRIDE=""
+NEW_PAGE_URL_OVERRIDE=""
+NGINX_MODE=false
 NEW_SMTP_HOST=""; SET_SMTP_HOST=false
 NEW_SMTP_PORT=""; SET_SMTP_PORT=false
 NEW_SMTP_SECURE=""; SET_SMTP_SECURE=false
@@ -84,6 +87,12 @@ Selección de instancia:
 Cambio de host:
   --host <url>             URL pública nueva (https://dominio o http://IP).
                            Los puertos se toman del .env automáticamente.
+                           Útil cuando expones puertos directos (sin proxy).
+  --nginx <url>            Como --host pero SIN agregar puertos. Útil cuando
+                           tienes nginx delante en HTTPS (puerto 443) y proxea
+                           internamente al backend/frontend.
+  --server-url <url>       Override directo del serverUrl (frontend → API).
+  --page-url <url>         Override directo del pageUrl (URL pública).
 
 Configuración SMTP (todos opcionales — solo cambia los que pases):
   --smtp-host <host>
@@ -104,7 +113,10 @@ Modo:
 
 Ejemplos:
   bash mantenimiento.sh --show
-  bash mantenimiento.sh --host https://decl.tecali.gob.mx
+  bash mantenimiento.sh --host http://192.168.1.100        # IP directa con puertos
+  bash mantenimiento.sh --nginx https://decl.tecali.gob.mx # nginx delante (HTTPS:443)
+  bash mantenimiento.sh --server-url https://api.tecali.gob.mx \\
+       --page-url https://decl.tecali.gob.mx              # subdominios separados
   bash mantenimiento.sh --instance pnd_tecali \\
        --smtp-host mail.dataismo.mx --smtp-port 587 \\
        --smtp-user notif@dataismo.mx --smtp-password 'secret' \\
@@ -116,6 +128,9 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --instance)       INSTANCE="$2"; shift 2 ;;
     --host)           NEW_HOST="$2"; shift 2 ;;
+    --nginx)          NEW_HOST="$2"; NGINX_MODE=true; shift 2 ;;
+    --server-url)     NEW_SERVER_URL_OVERRIDE="$2"; shift 2 ;;
+    --page-url)       NEW_PAGE_URL_OVERRIDE="$2"; shift 2 ;;
     --smtp-host)      NEW_SMTP_HOST="$2"; SET_SMTP_HOST=true; shift 2 ;;
     --smtp-port)      NEW_SMTP_PORT="$2"; SET_SMTP_PORT=true; shift 2 ;;
     --smtp-secure)    NEW_SMTP_SECURE="$2"; SET_SMTP_SECURE=true; shift 2 ;;
@@ -251,6 +266,8 @@ fi
 # ── Modo interactivo si no se pasaron flags de cambio ────────────
 ANY_FLAG=false
 [ -n "$NEW_HOST" ] && ANY_FLAG=true
+[ -n "$NEW_SERVER_URL_OVERRIDE" ] && ANY_FLAG=true
+[ -n "$NEW_PAGE_URL_OVERRIDE" ] && ANY_FLAG=true
 $SET_SMTP_HOST   && ANY_FLAG=true
 $SET_SMTP_PORT   && ANY_FLAG=true
 $SET_SMTP_SECURE && ANY_FLAG=true
@@ -341,6 +358,12 @@ SMTP_CHANGED=false
 if [ -n "$NEW_HOST" ] && [ "$NEW_HOST" != "$CUR_HOST" ]; then
   HOST_CHANGED=true
 fi
+if [ -n "$NEW_SERVER_URL_OVERRIDE" ] && [ "$NEW_SERVER_URL_OVERRIDE" != "$CUR_SERVER_URL" ]; then
+  HOST_CHANGED=true
+fi
+if [ -n "$NEW_PAGE_URL_OVERRIDE" ] && [ "$NEW_PAGE_URL_OVERRIDE" != "$CUR_PAGE_URL" ]; then
+  HOST_CHANGED=true
+fi
 
 check_smtp_change() {
   local cur="$1" new="$2" set="$3"
@@ -362,32 +385,47 @@ if [ "$HOST_CHANGED" = false ] && [ "$SMTP_CHANGED" = false ]; then
 fi
 
 # ── Construir URLs nuevas (si cambia host) ───────────────────────
+# Precedencia:
+#   1) --server-url / --page-url (overrides directos) — ganan siempre
+#   2) --nginx <url>             — usa la URL tal cual, sin puertos
+#   3) --host <url>              — agrega los puertos del .env (modo directo)
 NEW_SERVER_URL="$CUR_SERVER_URL"
 NEW_PAGE_URL="$CUR_PAGE_URL"
 NEW_FE_RESET_URL="$CUR_FE_RESET_URL"
 
-if $HOST_CHANGED; then
-  # Detectar si el nuevo host trae puerto explícito; si trae, lo respetamos
-  # (caso raro: el usuario quiere cambiar también puerto). Si no, agregamos
-  # los puertos del .env.
-  if echo "$NEW_HOST" | grep -qE ':[0-9]+$'; then
-    # Host con puerto explícito → usar tal cual para ambas URLs
-    NEW_SERVER_URL="$NEW_HOST"
-    NEW_PAGE_URL="$NEW_HOST"
-  else
-    # Construir según puertos del .env
-    if [ "$CUR_BACKEND_PORT" = "80" ] || [ "$CUR_BACKEND_PORT" = "443" ]; then
+if [ -n "$NEW_HOST" ] || [ -n "$NEW_SERVER_URL_OVERRIDE" ] || [ -n "$NEW_PAGE_URL_OVERRIDE" ]; then
+  if [ -n "$NEW_HOST" ]; then
+    if $NGINX_MODE; then
+      # Modo nginx: usar la URL tal cual, sin agregar puertos.
       NEW_SERVER_URL="$NEW_HOST"
-    else
-      NEW_SERVER_URL="${NEW_HOST}:${CUR_BACKEND_PORT}"
-    fi
-    if [ "$CUR_FRONTEND_PORT" = "80" ] || [ "$CUR_FRONTEND_PORT" = "443" ]; then
+      NEW_PAGE_URL="$NEW_HOST"
+    elif echo "$NEW_HOST" | grep -qE ':[0-9]+$'; then
+      # Host con puerto explícito → usar tal cual para ambas URLs.
+      NEW_SERVER_URL="$NEW_HOST"
       NEW_PAGE_URL="$NEW_HOST"
     else
-      NEW_PAGE_URL="${NEW_HOST}:${CUR_FRONTEND_PORT}"
+      # Modo directo: construir según puertos del .env.
+      if [ "$CUR_BACKEND_PORT" = "80" ] || [ "$CUR_BACKEND_PORT" = "443" ]; then
+        NEW_SERVER_URL="$NEW_HOST"
+      else
+        NEW_SERVER_URL="${NEW_HOST}:${CUR_BACKEND_PORT}"
+      fi
+      if [ "$CUR_FRONTEND_PORT" = "80" ] || [ "$CUR_FRONTEND_PORT" = "443" ]; then
+        NEW_PAGE_URL="$NEW_HOST"
+      else
+        NEW_PAGE_URL="${NEW_HOST}:${CUR_FRONTEND_PORT}"
+      fi
     fi
   fi
+
+  # Overrides directos: ganan sobre cualquier construcción anterior.
+  [ -n "$NEW_SERVER_URL_OVERRIDE" ] && NEW_SERVER_URL="$NEW_SERVER_URL_OVERRIDE"
+  [ -n "$NEW_PAGE_URL_OVERRIDE" ]   && NEW_PAGE_URL="$NEW_PAGE_URL_OVERRIDE"
+
+  # FE_RESET_PASSWORD_URL siempre apunta a la página pública.
   NEW_FE_RESET_URL="$NEW_PAGE_URL"
+  # Quitar trailing slash si lo tiene (para que no aparezca https://x// en correos)
+  NEW_FE_RESET_URL="${NEW_FE_RESET_URL%/}"
 fi
 
 # ── Mostrar diff y confirmar ─────────────────────────────────────
