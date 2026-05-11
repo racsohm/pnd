@@ -89,8 +89,12 @@ class MongoBackupService
             '--password=' . $inst['mongo_pass'],
             '--gzip',
             '--archive=' . $absoluteFilePath,
-            '--nsFrom=*.*',
-            '--nsTo=' . $inst['mongo_db'] . '.*',
+            // Renombra cualquier DB del dump al MONGO_DB de la instancia
+            // destino, preservando colecciones. Hay que usar placeholders
+            // nombrados — mongorestore exige misma cantidad de '*' en
+            // ambos lados, así que '*.*' → 'target.*' falla.
+            '--nsFrom=${db}.${collection}',
+            '--nsTo=' . $inst['mongo_db'] . '.${collection}',
         ];
         if ($drop) {
             $cmd[] = '--drop';
