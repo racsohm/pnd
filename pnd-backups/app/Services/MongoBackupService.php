@@ -79,6 +79,21 @@ class MongoBackupService
         }
 
         $env = $this->buildMongoEnv($inst);
+        $targetDb = $inst['mongo_db'];
+
+        // mongorestore en esta versión no acepta placeholders nombrados
+        // ('${db}/${collection}') ni '*.*' → 'target.*' (exige misma
+        // cantidad de '*' en ambos lados). Inspeccionamos el archive con
+        // --dryRun para descubrir el nombre real de la DB y construir
+        // un rename concreto: 'dbReal.*' → 'target.*'.
+        $sourceDbs = $this->inspectArchiveDbs($absoluteFilePath, $inst);
+
+        if (count($sourceDbs) > 1) {
+            throw new RuntimeException(
+                'El archivo contiene múltiples bases ('.implode(', ', $sourceDbs).'). '.
+                'El restore automático sólo soporta una. Genera un dump específico de la base que querés restaurar.'
+            );
+        }
 
         $cmd = [
             'mongorestore',
@@ -89,13 +104,15 @@ class MongoBackupService
             '--password=' . $inst['mongo_pass'],
             '--gzip',
             '--archive=' . $absoluteFilePath,
-            // Renombra cualquier DB del dump al MONGO_DB de la instancia
-            // destino, preservando colecciones. Hay que usar placeholders
-            // nombrados — mongorestore exige misma cantidad de '*' en
-            // ambos lados, así que '*.*' → 'target.*' falla.
-            '--nsFrom=${db}.${collection}',
-            '--nsTo=' . $inst['mongo_db'] . '.${collection}',
         ];
+
+        if (count($sourceDbs) === 1 && $sourceDbs[0] !== $targetDb) {
+            $cmd[] = '--nsFrom=' . $sourceDbs[0] . '.*';
+            $cmd[] = '--nsTo='   . $targetDb     . '.*';
+        }
+        // Si sourceDbs está vacío (no se pudo inspeccionar), dejamos al
+        // restore intentar tal cual y que falle con un error informativo.
+
         if ($drop) {
             $cmd[] = '--drop';
         }
@@ -118,6 +135,39 @@ class MongoBackupService
                 ($err !== '' ? $err : 'sin salida')
             );
         }
+    }
+
+    /**
+     * Corre mongorestore --dryRun para descubrir qué bases vienen en el
+     * archive. Devuelve nombres únicos. Si la inspección falla (archive
+     * corrupto, no se puede conectar, etc.) devuelve [] y dejamos que
+     * el restore real falle con su propio diagnóstico.
+     */
+    private function inspectArchiveDbs(string $archivePath, array $inst): array
+    {
+        $cmd = [
+            'mongorestore',
+            '--host=' . $inst['mongo_host'],
+            '--port=' . $inst['mongo_port'],
+            '--authenticationDatabase=admin',
+            '--username=' . $inst['mongo_user'],
+            '--password=' . $inst['mongo_pass'],
+            '--gzip',
+            '--archive=' . $archivePath,
+            '--dryRun',
+            '-v',
+        ];
+        $process = new Process($cmd, null, $this->buildMongoEnv($inst), null, 60);
+        $process->run();
+
+        // mongorestore escribe líneas como:
+        //   "... reading metadata for tecali_declaraciones.users from archive"
+        //   "... restoring tecali_declaraciones.users from archive"
+        $output = $process->getErrorOutput()."\n".$process->getOutput();
+        if (preg_match_all('/(?:reading metadata for|restoring)\s+([A-Za-z0-9_\-]+)\.[A-Za-z0-9_\-.\$]+\s+from archive/m', $output, $m)) {
+            return array_values(array_unique($m[1]));
+        }
+        return [];
     }
 
     public function ensureBackupsDir(string $slug): string
