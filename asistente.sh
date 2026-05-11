@@ -144,6 +144,32 @@ else
   BACKEND_URL="${PROTOCOL}://${PUBLIC_HOST}:${BACKEND_PORT}"
 fi
 
+# ── Proxy inverso ─────────────────────────────────────────────────
+# Si el operador tiene nginx (u otro proxy) sirviendo el frontend en
+# https://dominio.com/ y reenviando https://dominio.com/api/... al
+# contenedor del backend, las URLs públicas NO deben incluir los puertos
+# internos (ej. :8081, :3010). Acá pedimos las URLs reales si aplica;
+# vacío = comportamiento anterior (host:puerto).
+echo ""
+echo -e "  ${YELLOW}¿Servís el backend detrás de un proxy inverso (nginx con /api/...)?${NC}"
+echo -e "  ${YELLOW}Ej.: si nginx publica https://${PUBLIC_HOST}/api y proxea a localhost:${BACKEND_PORT},${NC}"
+echo -e "  ${YELLOW}respondé acá con esa URL pública. Vacío = usar ${BACKEND_URL} tal cual.${NC}"
+ask "URL pública del backend (vacío = ${BACKEND_URL})" ""
+if [ -n "$REPLY" ]; then
+  BACKEND_URL="${REPLY%/}"   # sin trailing slash para que sed no lo duplique
+  info "URL del backend (frontend bundle) → ${BACKEND_URL}"
+fi
+
+echo ""
+echo -e "  ${YELLOW}URL pública del frontend (lo que ve el navegador y lo que va en los correos).${NC}"
+echo -e "  ${YELLOW}Si el frontend también pasa por el proxy (https://${PUBLIC_HOST}/), respondé con esa URL.${NC}"
+echo -e "  ${YELLOW}Vacío = usar ${FRONTEND_URL} tal cual.${NC}"
+ask "URL pública del frontend (vacío = ${FRONTEND_URL})" ""
+if [ -n "$REPLY" ]; then
+  FRONTEND_URL="${REPLY%/}"
+  info "URL del frontend (pageUrl, correos de reset) → ${FRONTEND_URL}"
+fi
+
 # ═══════════════════════════════════════════════════════════════════
 # SECCIÓN 2 — Datos de la institución
 # ═══════════════════════════════════════════════════════════════════

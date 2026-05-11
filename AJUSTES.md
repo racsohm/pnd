@@ -18,14 +18,15 @@ Bitácora técnica de los problemas que encontramos al desplegar `SistemaDeclara
 6. [`MongoError: Authentication failed` al crear segunda instancia](#6-mongoerror-authentication-failed-al-crear-segunda-instancia)
 7. [PDF de declaración devuelve `BAD REQUEST` en multi-instancia](#7-pdf-de-declaración-devuelve-bad-request-en-multi-instancia)
 8. [`Connection timeout` al enviar correo SMTP](#8-connection-timeout-al-enviar-correo-smtp)
+9. [El frontend pega al backend con `:PUERTO` cuando hay proxy inverso](#9-el-frontend-pega-al-backend-con-puerto-cuando-hay-proxy-inverso)
 
 ### Panel `pnd-backups` (Laravel)
 
-9. [HTTP 500 en `pnd-backups` por `APP_KEY` vacío](#9-http-500-en-pnd-backups-por-app_key-vacío)
-10. [`pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`](#10-pnd-backups-solo-accesible-desde-localhost--bind_address)
-11. [`APP_DEBUG` para inspeccionar errores 500 sin entrar al log](#11-app_debug-para-inspeccionar-errores-500-sin-entrar-al-log)
-12. [Login del panel exige formato email pero quiero usuario plano (`admin`)](#12-login-del-panel-exige-formato-email-pero-quiero-usuario-plano-admin)
-13. [Dashboard muestra "No se detectaron instancias en `/host/instances`"](#13-dashboard-muestra-no-se-detectaron-instancias-en-hostinstances)
+10. [HTTP 500 en `pnd-backups` por `APP_KEY` vacío](#10-http-500-en-pnd-backups-por-app_key-vacío)
+11. [`pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`](#11-pnd-backups-solo-accesible-desde-localhost--bind_address)
+12. [`APP_DEBUG` para inspeccionar errores 500 sin entrar al log](#12-app_debug-para-inspeccionar-errores-500-sin-entrar-al-log)
+13. [Login del panel exige formato email pero quiero usuario plano (`admin`)](#13-login-del-panel-exige-formato-email-pero-quiero-usuario-plano-admin)
+14. [Dashboard muestra "No se detectaron instancias en `/host/instances`"](#14-dashboard-muestra-no-se-detectaron-instancias-en-hostinstances)
 
 ### Operativas
 
@@ -358,7 +359,119 @@ Estos servicios entregan correo via HTTPS (puerto 443), inmune a bloqueos de SMT
 
 ---
 
-## 9. HTTP 500 en `pnd-backups` por `APP_KEY` vacío
+## 9. El frontend pega al backend con `:PUERTO` cuando hay proxy inverso
+
+### Síntoma
+El navegador hace requests a `https://tlacotepec.puebla.app:3010/instituciones` (con el puerto del backend) en lugar de `https://tlacotepec.puebla.app/api/instituciones`, y la página queda colgada cargando la lista de instituciones. Los correos de reset de contraseña llevan a `https://tlacotepec.puebla.app:8081/reset?token=...` (con el puerto del frontend), que no responde por el proxy.
+
+### Causa raíz
+`asistente.sh` construye dos URLs públicas:
+
+```bash
+BACKEND_URL="${PROTOCOL}://${PUBLIC_HOST}:${BACKEND_PORT}"
+FRONTEND_URL="${PROTOCOL}://${PUBLIC_HOST}:${FRONTEND_PORT}"
+```
+
+Estas URLs se inyectan en tres lugares:
+
+1. **`environment.prod.ts` del frontend** → `serverUrl: '<BACKEND_URL>'` y `pageUrl: '<FRONTEND_URL>/'`. Angular las **embebe en el bundle** durante el build (línea ~478 del asistente).
+2. **`SistemaDeclaraciones_backend/.env`** → `FE_RESET_PASSWORD_URL=<FRONTEND_URL>`, base de los correos de reset (línea ~385).
+
+Cuando hay nginx delante con un esquema `https://dominio.com/` para el frontend y `https://dominio.com/api/` proxeado al backend, los puertos internos (3010, 8081) **no son alcanzables desde el navegador del usuario**, pero el bundle ya quedó con esa URL hardcodeada.
+
+### Solución
+El asistente ahora pregunta dos URLs públicas adicionales (después de `PROTOCOL` y antes del resumen). Si quedan vacías, mantiene el comportamiento clásico `host:puerto`:
+
+```
+URL pública del backend (vacío = https://dominio.com:3010):
+> https://dominio.com/api
+
+URL pública del frontend (vacío = https://dominio.com:8081):
+> https://dominio.com
+```
+
+Esos valores reemplazan `BACKEND_URL` y `FRONTEND_URL` solo para los textos que ve el cliente — los `BACKEND_PORT`/`FRONTEND_PORT` siguen siendo los puertos internos del Docker.
+
+### Aplicar a una instancia ya desplegada
+Sin volver a correr el asistente:
+
+```bash
+cd /dataismo/<instancia>
+
+# 1) Bundle del frontend: cambiar serverUrl y pageUrl
+sudo sed -i \
+  -e "s|serverUrl: 'https://dominio.com:3010'|serverUrl: 'https://dominio.com/api'|" \
+  -e "s|pageUrl: 'https://dominio.com:8081/'|pageUrl: 'https://dominio.com/'|" \
+  SistemaDeclaraciones_frontend/src/environments/environment.prod.ts
+
+# 2) Backend: FE_RESET_PASSWORD_URL para los correos
+sudo sed -i 's|^FE_RESET_PASSWORD_URL=.*|FE_RESET_PASSWORD_URL=https://dominio.com|' \
+  SistemaDeclaraciones_backend/.env
+
+# 3) Rebuild solo lo afectado
+sudo docker compose build webapp   # frontend = servicio 'webapp'
+sudo docker compose up -d --force-recreate webapp app
+```
+
+Adaptá las URLs a tu dominio real. El servicio del frontend en el compose se llama **`webapp`**, no `frontend`; los servicios son `mongo`, `reports`, `app` (backend) y `webapp` (frontend).
+
+### Config de nginx necesaria
+El truco del `proxy_pass` con trailing slash es lo que despoja el prefijo `/api/` antes de hablar con el backend:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name tlacotepec.puebla.app;
+    # ...config TLS...
+
+    # Frontend
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # Backend bajo /api/ → contenedor en :3010 sin el prefijo
+    location /api/ {
+        proxy_pass http://127.0.0.1:3010/;   # ← trailing slash CLAVE
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+Sin el trailing slash en `proxy_pass http://127.0.0.1:3010;` nginx reenvía la URI completa (`/api/instituciones`) y el backend recibe `/api/instituciones`, que no es ruta válida.
+
+### Verificar
+```bash
+# 1) El bundle correcto está en el contenedor
+sudo docker compose exec webapp \
+  grep -oE "serverUrl:'[^']+'" /usr/share/nginx/html/main.*.js | head -1
+# Debe imprimir: serverUrl:'https://dominio.com/api'   (sin :3010)
+
+# 2) El backend tiene la URL pública del frontend para los correos
+sudo docker compose exec app printenv FE_RESET_PASSWORD_URL
+# Debe imprimir: https://dominio.com   (sin :8081)
+
+# 3) Y el endpoint pega bien vía proxy
+curl -fsI https://dominio.com/api/instituciones
+# HTTP/2 200
+```
+
+### Por qué vuelve a aparecer
+Cualquiera de estas cosas regenera el bundle del frontend y vuelve a meter el puerto si el asistente lo armó con la URL "host:puerto":
+
+- Re-correr `asistente.sh`.
+- `docker compose build --no-cache webapp`.
+- Borrar/recrear los volúmenes y dejar que el build se haga desde cero.
+
+Con la nueva pregunta del asistente respondida correctamente, el `BACKEND_URL`/`FRONTEND_URL` quedan persistidos en el repositorio de la instancia (sólo en el `environment.prod.ts` y el `.env` del backend, no en un archivo de config aparte) — así que conviene volver a correr el asistente una vez, responder ambas URLs públicas y ya queda definitivo.
+
+---
+
+## 10. HTTP 500 en `pnd-backups` por `APP_KEY` vacío
 
 ### Síntoma
 Levantás `pnd-backups` por primera vez con `bash setup.sh` y al abrir la URL del panel obtenés un **HTTP 500 sin más detalle**. Si activás debug ves un `MissingAppKeyException` o un `decrypt` que falla en el primer hit.
@@ -403,7 +516,7 @@ curl -fsI http://127.0.0.1:8090/login
 
 ---
 
-## 10. `pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`
+## 11. `pnd-backups` solo accesible desde localhost / `BIND_ADDRESS`
 
 ### Síntoma
 El panel responde bien con `curl 127.0.0.1:8090` desde el host, pero al intentar abrirlo desde otra máquina (o desde la IP pública del VPS) la conexión cae con timeout o "connection refused".
@@ -441,7 +554,7 @@ curl -fsI http://<IP_publica>:8090/login
 
 ---
 
-## 11. `APP_DEBUG` para inspeccionar errores 500 sin entrar al log
+## 12. `APP_DEBUG` para inspeccionar errores 500 sin entrar al log
 
 ### Síntoma
 La app devuelve HTTP 500 con la página genérica de Laravel ("Server Error"). No hay forma de saber qué excepción saltó sin entrar al contenedor a tail-ear `storage/logs/laravel.log`.
@@ -476,7 +589,7 @@ Recargar la página que da 500 — ahora debería mostrar la pantalla de Whoops/
 
 ---
 
-## 12. Login del panel exige formato email pero quiero usuario plano (`admin`)
+## 13. Login del panel exige formato email pero quiero usuario plano (`admin`)
 
 ### Síntoma
 Querés entrar como `admin` (sin dominio), pero el formulario de login rechaza el valor: "El campo debe ser una dirección de correo válida". Y aunque pongas el email correcto, validación HTML5 del `<input type="email">` lo bloquea antes de enviar.
@@ -521,7 +634,7 @@ docker compose exec backups php artisan tinker --execute="\App\Models\User::wher
 
 ---
 
-## 13. Dashboard muestra "No se detectaron instancias en `/host/instances`"
+## 14. Dashboard muestra "No se detectaron instancias en `/host/instances`"
 
 ### Síntoma
 El panel `pnd-backups` arranca, podés iniciar sesión, pero el dashboard sale vacío con el mensaje:
