@@ -15,6 +15,7 @@ BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 info()    { echo -e "${BLUE}[INFO]${NC}   $*"; }
 success() { echo -e "${GREEN}[OK]${NC}     $*"; }
 warn()    { echo -e "${YELLOW}[AVISO]${NC}  $*"; }
+err()     { echo -e "${RED}[ERROR]${NC}  $*" >&2; exit 1; }
 header()  { echo -e "\n${BOLD}${CYAN}$*${NC}"; \
             echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"; }
 
@@ -290,16 +291,62 @@ REPORTS_API_KEY=$(openssl rand -hex 16)
 # MongoDB: reutilizar credenciales compartidas si existen.
 # Mongo solo inicializa el usuario root en el PRIMER arranque, así que la
 # password debe ser estable mientras el contenedor pdnmx-mongo viva.
+DB_ROOT_USER=""
+DB_ROOT_PASSWORD=""
+
+# 1) .env raíz canónico — el caso ideal, todas las instancias comparten esto.
 if [ -f "$BASE_DIR/.env" ] && grep -q '^DB_ROOT_PASSWORD=' "$BASE_DIR/.env"; then
   DB_ROOT_USER=$(grep '^DB_ROOT_USER=' "$BASE_DIR/.env" | head -1 | cut -d= -f2)
   DB_ROOT_PASSWORD=$(grep '^DB_ROOT_PASSWORD=' "$BASE_DIR/.env" | head -1 | cut -d= -f2)
   info "Reutilizando credenciales MongoDB de $BASE_DIR/.env"
-elif sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^pdnmx-mongo$'; then
-  err "pdnmx-mongo corre pero $BASE_DIR/.env no tiene DB_ROOT_PASSWORD.\n  Soluciones:\n    a) Restaura el .env compartido (recupera DB_ROOT_PASSWORD de un .env de instancia)\n    b) Ejecuta limpiar.sh para resetear todo y empezar de cero"
-else
+fi
+
+# 2) Si no las tenemos pero pdnmx-mongo corre, intentar recuperar:
+#    a) printenv del contenedor (sobrevive a reinicios sin volúmenes nuevos).
+#    b) cualquier .env hermano que tenga DB_ROOT_PASSWORD (instancia previa
+#       creada con un nombre distinto a "pnd", caso típico del primer setup).
+if [ -z "$DB_ROOT_PASSWORD" ] \
+   && sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^pdnmx-mongo$'; then
+  CTN_USER=$(sudo docker exec pdnmx-mongo printenv MONGO_INITDB_ROOT_USERNAME 2>/dev/null || true)
+  CTN_PASS=$(sudo docker exec pdnmx-mongo printenv MONGO_INITDB_ROOT_PASSWORD 2>/dev/null || true)
+  if [ -n "$CTN_USER" ] && [ -n "$CTN_PASS" ]; then
+    DB_ROOT_USER="$CTN_USER"
+    DB_ROOT_PASSWORD="$CTN_PASS"
+    warn "Recuperadas credenciales root desde el contenedor pdnmx-mongo."
+  else
+    # Fallback: buscar en .env de instancias hermanas (no tocar el nuevo INSTANCE_DIR).
+    PARENT_DIR="$(dirname "$BASE_DIR")"
+    for f in "$PARENT_DIR"/*/.env; do
+      [ -f "$f" ] || continue
+      [ "$f" = "$INSTANCE_DIR/.env" ] && continue
+      if grep -q '^DB_ROOT_PASSWORD=' "$f"; then
+        DB_ROOT_USER=$(grep '^DB_ROOT_USER=' "$f" | head -1 | cut -d= -f2)
+        DB_ROOT_PASSWORD=$(grep '^DB_ROOT_PASSWORD=' "$f" | head -1 | cut -d= -f2)
+        warn "Recuperadas credenciales root desde $f"
+        break
+      fi
+    done
+  fi
+
+  if [ -z "$DB_ROOT_PASSWORD" ]; then
+    err "pdnmx-mongo corre pero no encontré DB_ROOT_PASSWORD.\n  Probé en orden:\n    - $BASE_DIR/.env\n    - docker exec pdnmx-mongo printenv MONGO_INITDB_ROOT_PASSWORD\n    - $PARENT_DIR/*/.env\n  Si conocés la password, recreá $BASE_DIR/.env con DB_ROOT_USER= y DB_ROOT_PASSWORD= y reintentá.\n  Si no, limpiar.sh resetea Mongo (DESTRUYE todos los datos)."
+  fi
+
+  # Persistir lo encontrado en el .env canónico para próximos asistente.sh.
+  if [ ! -f "$BASE_DIR/.env" ] || ! grep -q '^DB_ROOT_PASSWORD=' "$BASE_DIR/.env"; then
+    {
+      echo "DB_ROOT_USER=$DB_ROOT_USER"
+      echo "DB_ROOT_PASSWORD=$DB_ROOT_PASSWORD"
+    } >> "$BASE_DIR/.env"
+    info "Guardadas credenciales en $BASE_DIR/.env (idempotente para futuras instalaciones)."
+  fi
+fi
+
+# 3) Primer arranque real: ningún pdnmx-mongo, ningún .env. Generamos nuevas.
+if [ -z "$DB_ROOT_PASSWORD" ]; then
   DB_ROOT_USER="pdnmx_admin"
   DB_ROOT_PASSWORD=$(openssl rand -hex 16)
-  info "Generadas credenciales MongoDB nuevas (primer arranque)"
+  info "Generadas credenciales MongoDB nuevas (primer arranque)."
 fi
 
 # ── .env raíz ─────────────────────────────────────────────────────
