@@ -12,6 +12,27 @@ chown -R www-data:www-data storage bootstrap/cache database /var/backups
 # (/var/lib/nginx/tmp/client_body) da EACCES en cada POST con body grande.
 chown -R www-data:www-data /var/lib/nginx
 
+# ── Acceso al docker.sock del host (para rebuild desde la UI) ────
+# El socket viene con el GID del grupo 'docker' del host. Creamos un
+# grupo interno con ese mismo GID y le agregamos www-data para que
+# `docker compose` corra sin sudo desde PHP-FPM.
+if [ -S /var/run/docker.sock ]; then
+  DOCKER_GID="$(stat -c %g /var/run/docker.sock 2>/dev/null || echo '')"
+  if [ -n "$DOCKER_GID" ] && [ "$DOCKER_GID" != "0" ]; then
+    if ! getent group "$DOCKER_GID" >/dev/null 2>&1; then
+      addgroup -g "$DOCKER_GID" docker 2>/dev/null || addgroup docker 2>/dev/null || true
+    fi
+    GRP_NAME="$(getent group "$DOCKER_GID" | cut -d: -f1)"
+    [ -n "$GRP_NAME" ] && addgroup www-data "$GRP_NAME" 2>/dev/null || true
+  else
+    # Si el socket está en gid 0 (root), www-data igual no entra. Como
+    # último recurso, abrimos lectura/escritura al socket. Solo aplica en
+    # hosts donde dockerd corre con --group root, raro pero posible.
+    chmod 0660 /var/run/docker.sock 2>/dev/null || true
+    adduser www-data root 2>/dev/null || true
+  fi
+fi
+
 # SQLite vacío si no existe
 DB_FILE="${DB_DATABASE:-/var/www/html/database/sqlite/database.sqlite}"
 if [ ! -f "$DB_FILE" ]; then

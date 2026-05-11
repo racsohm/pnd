@@ -23,9 +23,14 @@ services:
       # SQLite + sesiones + logs
       - ./storage-app:/var/www/html/storage
       - ./storage-db:/var/www/html/database/sqlite
-      # Auto-discovery de instancias: monta /opt en read-only para leer
-      # los .env de cada SistemaDeclaraciones_backend/.
-      - ${INSTANCES_HOST_PATH:-/opt}:/host/instances:ro
+      # Auto-discovery + edición de datos de institución: monta /opt en
+      # rw para leer los .env de cada SistemaDeclaraciones_backend/ y para
+      # poder reescribir instituciones.json desde el editor del panel.
+      - ${INSTANCES_HOST_PATH:-/opt}:/host/instances
+      # Socket de Docker del host: el panel ejecuta
+      # `docker compose up --build -d app` al guardar cambios de institución.
+      # SEGURIDAD: equivale a root en el host — solo admins entran al panel.
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - pdnmx_network
     healthcheck:

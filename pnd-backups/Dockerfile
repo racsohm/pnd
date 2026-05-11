@@ -11,6 +11,7 @@ RUN apk add --no-cache \
         sqlite sqlite-dev \
         oniguruma-dev libzip-dev icu-dev \
         nodejs npm git \
+        docker-cli docker-cli-compose \
     && docker-php-ext-install pdo pdo_sqlite mbstring zip intl bcmath
 
 # ── Driver mongodb (PECL) — usado por el Inspector ───────────────

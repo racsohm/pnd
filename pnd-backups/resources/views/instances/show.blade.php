@@ -10,10 +10,16 @@
       DB: <code>{{ $instance['mongo_db'] }}</code> · Host: <code>{{ $instance['mongo_host'] }}:{{ $instance['mongo_port'] }}</code>
     </p>
   </div>
-  <a href="{{ route('instances.inspect', $instance['slug']) }}"
-     class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
-    Inspector →
-  </a>
+  <div class="flex items-center gap-2">
+    <a href="{{ route('instances.institute', $instance['slug']) }}"
+       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+      Datos de institución →
+    </a>
+    <a href="{{ route('instances.inspect', $instance['slug']) }}"
+       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+      Inspector →
+    </a>
+  </div>
 </div>
 
 @php

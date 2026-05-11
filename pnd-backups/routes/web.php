@@ -6,6 +6,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\InstanceController;
+use App\Http\Controllers\InstituteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -22,6 +23,15 @@ Route::middleware('admin')->group(function () {
         ->name('instances.show');
     Route::get('/instances/{slug}/inspect', [InspectorController::class, 'show'])
         ->name('instances.inspect');
+
+    Route::get('/instances/{slug}/instituto',  [InstituteController::class, 'edit'])
+        ->name('instances.institute');
+    Route::put('/instances/{slug}/instituto',  [InstituteController::class, 'update'])
+        ->name('instances.institute.update');
+    Route::post('/instances/{slug}/rebuild',   [InstituteController::class, 'rebuild'])
+        ->name('instances.rebuild');
+    Route::get('/instances/{slug}/rebuild/log', [InstituteController::class, 'log'])
+        ->name('instances.rebuild.log');
 
     Route::post('/instances/{slug}/backups', [BackupController::class, 'store'])
         ->name('backups.store');
