@@ -7,7 +7,7 @@
     "ext-mongodb": "*",
     "laravel/framework": "^11.9",
     "laravel/tinker": "^2.9",
-    "mongodb/mongodb": "^1.19"
+    "mongodb/mongodb": "^2.0"
   },
   "autoload": {
     "psr-4": {
