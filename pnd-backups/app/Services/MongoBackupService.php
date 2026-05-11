@@ -78,7 +78,20 @@ class MongoBackupService
             throw new RuntimeException("Archivo no encontrado: $absoluteFilePath");
         }
 
-        $env = $this->buildMongoEnv($inst);
+        $format = $this->detectArchiveFormat($absoluteFilePath);
+        if ($format === 'tar' || $format === 'tar.gz') {
+            $this->restoreFromTarball($instanceSlug, $inst, $absoluteFilePath, $format, $drop);
+        } else {
+            $this->restoreFromArchive($instanceSlug, $inst, $absoluteFilePath, $drop);
+        }
+    }
+
+    /**
+     * Flujo para dumps creados con `mongodump --archive --gzip` (un único
+     * stream binario). Es el formato que produce este propio panel.
+     */
+    private function restoreFromArchive(string $instanceSlug, array $inst, string $absoluteFilePath, bool $drop): void
+    {
         $targetDb = $inst['mongo_db'];
 
         // mongorestore en esta versión no acepta placeholders nombrados
@@ -110,19 +123,95 @@ class MongoBackupService
             $cmd[] = '--nsFrom=' . $sourceDbs[0] . '.*';
             $cmd[] = '--nsTo='   . $targetDb     . '.*';
         }
-        // Si sourceDbs está vacío (no se pudo inspeccionar), dejamos al
-        // restore intentar tal cual y que falle con un error informativo.
-
         if ($drop) {
             $cmd[] = '--drop';
         }
 
-        $process = new Process($cmd, null, $env, null, (float) config('backups.tools_timeout'));
+        $this->runMongorestore($cmd, $instanceSlug, $absoluteFilePath, $inst);
+    }
+
+    /**
+     * Flujo para dumps creados con `mongodump --out dir` y empaquetados
+     * con tar/tar.gz. Extrae a un dir temporal y restaura con --dir.
+     * El layout esperado es '<dump>/<dbName>/*.bson(.gz)?'.
+     */
+    private function restoreFromTarball(string $instanceSlug, array $inst, string $absoluteFilePath, string $format, bool $drop): void
+    {
+        $targetDb = $inst['mongo_db'];
+        $tmpDir = rtrim(sys_get_temp_dir(), '/').'/pnd-restore-'.bin2hex(random_bytes(8));
+        if (! @mkdir($tmpDir, 0700, true)) {
+            throw new RuntimeException("No se pudo crear directorio temporal: $tmpDir");
+        }
+
+        try {
+            $tarFlags = $format === 'tar.gz' ? '-xzf' : '-xf';
+            $extract = new Process(['tar', $tarFlags, $absoluteFilePath, '-C', $tmpDir], null, null, null, (float) config('backups.tools_timeout'));
+            $extract->run();
+            if (! $extract->isSuccessful()) {
+                throw new RuntimeException('No se pudo extraer el tarball: '.trim($extract->getErrorOutput() ?: $extract->getOutput()));
+            }
+
+            $dumpRoot = $this->findMongodumpRoot($tmpDir);
+            if ($dumpRoot === null) {
+                throw new RuntimeException(
+                    'El tarball no parece un dump de mongodump (no encontré subdirectorios con .bson).'
+                );
+            }
+
+            // Subdirs inmediatos de dumpRoot son los nombres de DB.
+            $dbDirs = array_values(array_filter(
+                (array) glob($dumpRoot.'/*', GLOB_ONLYDIR),
+                fn($d) => glob($d.'/*.bson') || glob($d.'/*.bson.gz')
+            ));
+            $sourceDbs = array_map('basename', $dbDirs);
+
+            if (count($sourceDbs) === 0) {
+                throw new RuntimeException('El dump no contiene archivos .bson.');
+            }
+            if (count($sourceDbs) > 1) {
+                throw new RuntimeException(
+                    'El dump contiene múltiples bases ('.implode(', ', $sourceDbs).'). '.
+                    'El restore automático sólo soporta una.'
+                );
+            }
+
+            // ¿Los .bson están gzipped? (mongodump --gzip --out dir)
+            $isGzipped = (bool) glob($dbDirs[0].'/*.bson.gz');
+
+            $cmd = [
+                'mongorestore',
+                '--host=' . $inst['mongo_host'],
+                '--port=' . $inst['mongo_port'],
+                '--authenticationDatabase=admin',
+                '--username=' . $inst['mongo_user'],
+                '--password=' . $inst['mongo_pass'],
+                '--dir=' . $dumpRoot,
+            ];
+            if ($isGzipped) {
+                $cmd[] = '--gzip';
+            }
+            if ($sourceDbs[0] !== $targetDb) {
+                $cmd[] = '--nsFrom=' . $sourceDbs[0] . '.*';
+                $cmd[] = '--nsTo='   . $targetDb     . '.*';
+            }
+            if ($drop) {
+                $cmd[] = '--drop';
+            }
+
+            $this->runMongorestore($cmd, $instanceSlug, $absoluteFilePath, $inst);
+        } finally {
+            // Limpieza del dir temporal aunque falle.
+            $rm = new Process(['rm', '-rf', $tmpDir], null, null, null, 60);
+            $rm->run();
+        }
+    }
+
+    private function runMongorestore(array $cmd, string $instanceSlug, string $absoluteFilePath, array $inst): void
+    {
+        $process = new Process($cmd, null, $this->buildMongoEnv($inst), null, (float) config('backups.tools_timeout'));
         $process->run();
 
         if (! $process->isSuccessful()) {
-            // mongorestore escribe progreso/errores a stderr; combinamos
-            // ambas streams porque a veces el detalle útil cae en stdout.
             $err = trim($process->getErrorOutput()."\n".$process->getOutput());
             Log::error('mongorestore failed', [
                 'slug'      => $instanceSlug,
@@ -135,6 +224,56 @@ class MongoBackupService
                 ($err !== '' ? $err : 'sin salida')
             );
         }
+    }
+
+    /**
+     * Detecta si el archivo subido es un tarball (con o sin gzip), un
+     * archive de mongodump, o algo no reconocible. Probamos primero
+     * tar.gz, luego tar plano, y si nada matchea asumimos --archive.
+     */
+    private function detectArchiveFormat(string $absoluteFilePath): string
+    {
+        foreach (['tar.gz' => '-tzf', 'tar' => '-tf'] as $fmt => $flag) {
+            $p = new Process(['tar', $flag, $absoluteFilePath], null, null, null, 30);
+            $p->run();
+            if ($p->isSuccessful() && trim($p->getOutput()) !== '') {
+                return $fmt;
+            }
+        }
+        return 'archive';
+    }
+
+    /**
+     * En un tarball de mongodump, el dir que mongorestore necesita en
+     * --dir suele estar 1-2 niveles abajo: o el propio $tmpDir, o un
+     * único subdir tipo 'dump/'. Devuelve el dir cuyos hijos son
+     * directorios de DBs (que a su vez contienen .bson).
+     */
+    private function findMongodumpRoot(string $base): ?string
+    {
+        $candidates = [$base];
+        // Si en $base solo hay un subdir, agregalo como candidato (típico
+        // de tar que envuelve todo en un dir 'dump/' o el nombre de la DB).
+        $top = array_values(array_filter((array) glob($base.'/*', GLOB_ONLYDIR)));
+        if (count($top) === 1) {
+            $candidates[] = $top[0];
+        }
+
+        foreach ($candidates as $c) {
+            // Hijos que sean dirs y contengan .bson o .bson.gz
+            foreach ((array) glob($c.'/*', GLOB_ONLYDIR) as $sub) {
+                if (glob($sub.'/*.bson') || glob($sub.'/*.bson.gz')) {
+                    return $c;
+                }
+            }
+            // Caso especial: el tar contiene directamente .bson en la
+            // raíz de la DB (sin envoltorio). $c es la DB; el "root"
+            // que mongorestore quiere es su padre.
+            if (glob($c.'/*.bson') || glob($c.'/*.bson.gz')) {
+                return dirname($c);
+            }
+        }
+        return null;
     }
 
     /**
