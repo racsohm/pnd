@@ -13,6 +13,14 @@ RUN apk add --no-cache \
         nodejs npm git \
     && docker-php-ext-install pdo pdo_sqlite mbstring zip intl bcmath
 
+# ── Driver mongodb (PECL) — usado por el Inspector ───────────────
+# Lo instalamos con build deps temporales que después borramos para
+# no inflar la imagen final.
+RUN apk add --no-cache --virtual .mongo-build $PHPIZE_DEPS openssl-dev pkgconf \
+    && pecl install mongodb \
+    && docker-php-ext-enable mongodb \
+    && apk del .mongo-build
+
 # ── mongodb-database-tools (mongodump/mongorestore) ──────────────
 # Alpine tiene paquetes en edge/community. Pin de versión vía edge.
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \

@@ -10,6 +10,10 @@
       DB: <code>{{ $instance['mongo_db'] }}</code> · Host: <code>{{ $instance['mongo_host'] }}:{{ $instance['mongo_port'] }}</code>
     </p>
   </div>
+  <a href="{{ route('instances.inspect', $instance['slug']) }}"
+     class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+    Inspector →
+  </a>
 </div>
 
 <div class="grid gap-4 md:grid-cols-2 mb-6">
