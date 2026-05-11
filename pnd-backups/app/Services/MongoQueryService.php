@@ -23,6 +23,20 @@ class MongoQueryService
         return $this->collection($slug, $collection)->countDocuments();
     }
 
+    /**
+     * Cuenta documentos creados desde $unixTimestamp aprovechando que
+     * el primer ObjectId del segundo X tiene hex(X) como prefijo. Como
+     * usa _id (índice nativo) el query es barato incluso en colecciones
+     * grandes y no depende de tener campos createdAt en el schema.
+     */
+    public function countSince(string $slug, string $collection, int $unixTimestamp): int
+    {
+        $hex = str_pad(dechex(max(0, $unixTimestamp)), 8, '0', STR_PAD_LEFT) . '0000000000000000';
+        return $this->collection($slug, $collection)->countDocuments([
+            '_id' => ['$gte' => new ObjectId($hex)],
+        ]);
+    }
+
     public function latest(string $slug, string $collection, int $limit = 50): array
     {
         $cursor = $this->collection($slug, $collection)->find(

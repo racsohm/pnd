@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InspectorController;
@@ -13,6 +14,9 @@ Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
 Route::middleware('admin')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
+
+    Route::get('/password',  [PasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/password',  [PasswordController::class, 'update'])->name('password.update');
 
     Route::get('/instances/{slug}', [InstanceController::class, 'show'])
         ->name('instances.show');

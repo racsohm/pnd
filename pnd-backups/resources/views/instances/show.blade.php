@@ -16,6 +16,73 @@
   </a>
 </div>
 
+@php
+  // Extrae el timestamp embebido en el ObjectId (_id) y devuelve una
+  // fecha "hace X" legible. Si _id no es ObjectId (es string), cae a '—'.
+  $whenFromId = function ($doc) {
+      $id = data_get($doc, '_id.$oid');
+      if (! $id || ! preg_match('/^[a-f0-9]{24}$/i', $id)) return null;
+      return \Carbon\Carbon::createFromTimestamp(hexdec(substr($id, 0, 8)));
+  };
+@endphp
+
+<section class="mb-6">
+  <h2 class="text-sm font-semibold text-slate-700 mb-2">Actividad</h2>
+
+  @if ($statsError)
+    <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-rose-800 text-sm">
+      No se pudo leer Mongo: {{ $statsError }}
+    </div>
+  @elseif ($stats)
+    <div class="grid gap-4 md:grid-cols-2">
+      @foreach ($stats as $collName => $s)
+        <div class="rounded-lg border bg-white p-4">
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-semibold capitalize">{{ $collName }}</span>
+            <a href="{{ route('instances.inspect', ['slug' => $instance['slug'], 'collection' => $collName]) }}"
+               class="text-xs text-slate-500 hover:underline">ver →</a>
+          </div>
+          <div class="mt-2 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div class="text-2xl font-semibold">{{ number_format($s['total']) }}</div>
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Total</div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold text-emerald-700">+{{ number_format($s['last_7']) }}</div>
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">7 días</div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold text-slate-700">+{{ number_format($s['last_30']) }}</div>
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">30 días</div>
+            </div>
+          </div>
+
+          @if (! empty($s['latest']))
+            <ul class="mt-3 pt-3 border-t divide-y text-xs">
+              @foreach ($s['latest'] as $doc)
+                @php
+                  $label = data_get($doc, 'email')
+                          ?? data_get($doc, 'username')
+                          ?? data_get($doc, 'nombre')
+                          ?? data_get($doc, 'name')
+                          ?? data_get($doc, '_id.$oid', '—');
+                  $when  = $whenFromId($doc);
+                @endphp
+                <li class="py-1.5 flex items-center justify-between gap-3">
+                  <span class="truncate text-slate-700">{{ $label }}</span>
+                  <span class="shrink-0 text-slate-400">
+                    {{ $when ? $when->diffForHumans() : '—' }}
+                  </span>
+                </li>
+              @endforeach
+            </ul>
+          @endif
+        </div>
+      @endforeach
+    </div>
+  @endif
+</section>
+
 <div class="grid gap-4 md:grid-cols-2 mb-6">
   <form method="POST" action="{{ route('backups.store', $instance['slug']) }}"
         class="rounded-lg border bg-white p-4">
