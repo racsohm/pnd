@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EditorController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\InstanceController;
 use App\Http\Controllers\InstituteController;
@@ -44,4 +45,25 @@ Route::middleware('admin')->group(function () {
         ->name('backups.restore');
     Route::delete('/backups/{id}', [BackupController::class, 'destroy'])
         ->name('backups.destroy');
+
+    // ── Editor de datos (usuarios y declaraciones) ─────────────
+    Route::get('/instances/{slug}/users/{id}/edit', [EditorController::class, 'editUser'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('users.edit');
+    Route::put('/instances/{slug}/users/{id}', [EditorController::class, 'updateUser'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('users.update');
+    Route::put('/instances/{slug}/users/{id}/password', [EditorController::class, 'resetPassword'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('users.password');
+    Route::put('/instances/{slug}/users/{id}/roles', [EditorController::class, 'updateRoles'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('users.roles');
+
+    Route::put('/instances/{slug}/declaraciones/{id}/fecha', [EditorController::class, 'updateDeclaracionFecha'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('declaraciones.fecha');
+    Route::delete('/instances/{slug}/declaraciones/{id}', [EditorController::class, 'deleteDeclaracion'])
+        ->where('id', '[a-f0-9]{24}')
+        ->name('declaraciones.destroy');
 });
