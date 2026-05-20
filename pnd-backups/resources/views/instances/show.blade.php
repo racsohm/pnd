@@ -122,6 +122,81 @@
   </form>
 </div>
 
+<div class="rounded-lg border bg-white mb-6">
+  <div class="px-4 py-3 border-b flex items-center justify-between">
+    <div>
+      <span class="font-semibold">Reconstruir frontend</span>
+      <p class="text-xs text-slate-500 mt-0.5">
+        Ejecuta <code>docker compose build --no-cache webapp</code> y reinicia el contenedor.
+        Necesario cuando se cambia <code>environment.prod.ts</code> u otras configs compiladas en Angular.
+      </p>
+    </div>
+    <form method="POST" action="{{ route('instances.rebuild.frontend', $instance['slug']) }}"
+          onsubmit="return confirm('¿Reconstruir el frontend? Puede tardar varios minutos.')">
+      @csrf
+      <button class="rounded border px-3 py-2 text-sm hover:bg-slate-50 whitespace-nowrap" type="submit">
+        Rebuild frontend
+      </button>
+    </form>
+  </div>
+
+  <div class="px-4 py-3 border-b flex items-center justify-between">
+    <span class="text-sm font-medium text-slate-600">Log</span>
+    <span id="frontend-rebuild-status" class="text-xs">
+      @if ($frontendRunning)
+        <span class="inline-flex items-center gap-1 text-amber-700">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> en curso…
+        </span>
+      @elseif ($frontendLog !== '')
+        <span class="text-slate-500">última corrida</span>
+      @else
+        <span class="text-slate-400">sin actividad</span>
+      @endif
+    </span>
+  </div>
+  <pre id="frontend-rebuild-log"
+       class="m-0 p-4 text-xs leading-relaxed text-slate-700 bg-slate-50 max-h-72 overflow-auto whitespace-pre-wrap">{{ $frontendLog !== '' ? $frontendLog : 'No hay rebuilds previos.' }}</pre>
+</div>
+
+<script>
+(function () {
+  const url = @json(route('instances.rebuild.frontend.log', $instance['slug']));
+  const pre = document.getElementById('frontend-rebuild-log');
+  const status = document.getElementById('frontend-rebuild-status');
+  let timer = null;
+
+  function setRunning(running) {
+    if (running) {
+      status.innerHTML = '<span class="inline-flex items-center gap-1 text-amber-700"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> en curso…</span>';
+    } else {
+      status.innerHTML = '<span class="text-emerald-700">terminado</span>';
+    }
+  }
+
+  async function tick() {
+    try {
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (! r.ok) return;
+      const data = await r.json();
+      if (data.log && data.log !== pre.textContent) {
+        const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+        pre.textContent = data.log;
+        if (atBottom) pre.scrollTop = pre.scrollHeight;
+      }
+      if (! data.running) {
+        setRunning(false);
+        clearInterval(timer);
+      }
+    } catch (e) { /* ignorar errores de red intermitentes */ }
+  }
+
+  if (@json($frontendRunning)) {
+    pre.scrollTop = pre.scrollHeight;
+    timer = setInterval(tick, 3000);
+  }
+})();
+</script>
+
 <div class="rounded-lg border bg-white">
   <div class="px-4 py-3 border-b font-semibold">Respaldos disponibles</div>
   @if ($backups->isEmpty())

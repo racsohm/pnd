@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Backup;
 use App\Services\InstanceDiscovery;
+use App\Services\InstanceRebuildService;
 use App\Services\MongoQueryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,7 @@ class InstanceController extends Controller
 {
     private const TRACKED = ['users', 'declaraciones'];
 
-    public function show(Request $request, InstanceDiscovery $discovery, MongoQueryService $query, string $slug)
+    public function show(Request $request, InstanceDiscovery $discovery, MongoQueryService $query, InstanceRebuildService $rebuild, string $slug)
     {
         $instance = $discovery->find($slug);
         if (! $instance) {
@@ -31,7 +32,10 @@ class InstanceController extends Controller
 
         [$stats, $statsError] = $this->loadStats($slug, $query);
 
-        return view('instances.show', compact('instance', 'backups', 'stats', 'statsError'));
+        $frontendRunning = $rebuild->isRunningWebapp($slug);
+        $frontendLog     = $rebuild->tailLogWebapp($slug, 400);
+
+        return view('instances.show', compact('instance', 'backups', 'stats', 'statsError', 'frontendRunning', 'frontendLog'));
     }
 
     /**

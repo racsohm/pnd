@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EditorController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\InstanceController;
+use App\Http\Controllers\FrontendRebuildController;
 use App\Http\Controllers\InstituteController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,7 @@ Route::middleware('admin')->group(function () {
 
     Route::get('/password',  [PasswordController::class, 'edit'])->name('password.edit');
     Route::put('/password',  [PasswordController::class, 'update'])->name('password.update');
+    Route::put('/email',     [PasswordController::class, 'updateEmail'])->name('email.update');
 
     Route::get('/instances/{slug}', [InstanceController::class, 'show'])
         ->name('instances.show');
@@ -33,6 +35,11 @@ Route::middleware('admin')->group(function () {
         ->name('instances.rebuild');
     Route::get('/instances/{slug}/rebuild/log', [InstituteController::class, 'log'])
         ->name('instances.rebuild.log');
+
+    Route::post('/instances/{slug}/rebuild-frontend', [FrontendRebuildController::class, 'rebuild'])
+        ->name('instances.rebuild.frontend');
+    Route::get('/instances/{slug}/rebuild-frontend/log', [FrontendRebuildController::class, 'log'])
+        ->name('instances.rebuild.frontend.log');
 
     Route::post('/instances/{slug}/backups', [BackupController::class, 'store'])
         ->name('backups.store');
