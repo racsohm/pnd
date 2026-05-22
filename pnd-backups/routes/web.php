@@ -9,6 +9,7 @@ use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\InstanceController;
 use App\Http\Controllers\FrontendRebuildController;
 use App\Http\Controllers\InstituteController;
+use App\Http\Controllers\MailConfigController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -31,6 +32,11 @@ Route::middleware('admin')->group(function () {
         ->name('instances.institute');
     Route::put('/instances/{slug}/instituto',  [InstituteController::class, 'update'])
         ->name('instances.institute.update');
+
+    Route::get('/instances/{slug}/correo',  [MailConfigController::class, 'edit'])
+        ->name('instances.mail');
+    Route::put('/instances/{slug}/correo',  [MailConfigController::class, 'update'])
+        ->name('instances.mail.update');
     Route::post('/instances/{slug}/rebuild',   [InstituteController::class, 'rebuild'])
         ->name('instances.rebuild');
     Route::get('/instances/{slug}/rebuild/log', [InstituteController::class, 'log'])

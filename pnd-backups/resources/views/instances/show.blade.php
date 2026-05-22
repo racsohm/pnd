@@ -15,6 +15,10 @@
        class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
       Datos de institución →
     </a>
+    <a href="{{ route('instances.mail', $instance['slug']) }}"
+       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+      Correo →
+    </a>
     <a href="{{ route('instances.inspect', $instance['slug']) }}"
        class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
       Inspector →
