@@ -50,14 +50,14 @@
   <div class="px-4 py-3 border-b font-semibold text-sm flex items-center justify-between">
     <span>Resultados</span>
     <div id="export-buttons" style="display:none" class="flex gap-2">
-      <a id="btn-excel" href="#"
-         class="rounded border px-3 py-1.5 text-xs hover:bg-slate-50 whitespace-nowrap">
+      <button id="btn-excel" type="button"
+              class="rounded border px-3 py-1.5 text-xs hover:bg-slate-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
         ↓ Excel (.xlsx)
-      </a>
-      <a id="btn-zip" href="#"
-         class="rounded border px-3 py-1.5 text-xs hover:bg-slate-50 whitespace-nowrap">
+      </button>
+      <button id="btn-zip" type="button"
+              class="rounded border px-3 py-1.5 text-xs hover:bg-slate-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
         ↓ ZIP (todos los PDFs)
-      </a>
+      </button>
       <a id="btn-pdf" href="#" target="_blank"
          class="rounded border px-3 py-1.5 text-xs hover:bg-slate-50 whitespace-nowrap">
         ↓ Imprimir / PDF
@@ -96,6 +96,10 @@
   const PRINT_URL   = @json(route('instances.reports.print',   $instance['slug']));
   const ZIP_URL     = @json(route('instances.reports.zip',     $instance['slug']));
   const PDF_BASE    = @json(url("instances/{$instance['slug']}/declaraciones"));
+
+  // URLs base (sin fechas) — se sobreescriben en fetchReport
+  let excelUrl = '#';
+  let zipUrl   = '#';
 
   elFrom.value = fmt(from);
   elTo.value   = fmt(to);
@@ -147,11 +151,29 @@
       document.getElementById('stat-pendientes').textContent = data.total - data.firmadas;
       summary.style.removeProperty('display');
 
-      // Botones de exportación
-      btnExcel.href = `${EXCEL_URL}?from=${dateFrom}&to=${dateTo}`;
-      btnPdf.href   = `${PRINT_URL}?from=${dateFrom}&to=${dateTo}`;
-      btnZip.href   = `${ZIP_URL}?from=${dateFrom}&to=${dateTo}`;
+      // Guardar URLs con fechas para los botones de descarga
+      excelUrl = `${EXCEL_URL}?from=${dateFrom}&to=${dateTo}`;
+      zipUrl   = `${ZIP_URL}?from=${dateFrom}&to=${dateTo}`;
+      btnPdf.href = `${PRINT_URL}?from=${dateFrom}&to=${dateTo}`;
       exports.style.display = 'flex';
+
+      // Conectar listeners de descarga con feedback (cada vez que cambia el rango)
+      btnExcel.onclick = function () {
+        downloadWithFeedback({
+          url: excelUrl,
+          trigger: btnExcel,
+          loadingText: 'Generando Excel…',
+          idleText: '↓ Excel (.xlsx)',
+        });
+      };
+      btnZip.onclick = function () {
+        downloadWithFeedback({
+          url: zipUrl,
+          trigger: btnZip,
+          loadingText: 'Empaquetando PDFs… (puede tardar varios minutos)',
+          idleText: '↓ ZIP (todos los PDFs)',
+        });
+      };
 
       if (data.rows.length === 0) {
         results.innerHTML = '<div class="p-8 text-sm text-slate-400 text-center">No hay declaraciones en este rango de fechas.</div>';
@@ -192,7 +214,8 @@
             <td class="px-4 py-2">${badge(row.declaracionCompleta, 'emerald', 'slate')}</td>
             <td class="px-4 py-2 text-slate-500 text-xs">${esc(row.createdAt)}</td>
             <td class="px-4 py-2">
-              <a href="${pdfUrl}" class="text-xs text-slate-600 hover:underline whitespace-nowrap">↓ PDF</a>
+              <a href="${pdfUrl}" data-pdf-download
+                 class="text-xs text-slate-600 hover:underline whitespace-nowrap">↓ PDF</a>
             </td>
           </tr>`;
       });
@@ -207,6 +230,19 @@
       btnFilter.disabled = false;
     }
   }
+
+  // Delegación de eventos para PDFs individuales en la tabla
+  results.addEventListener('click', function (e) {
+    const link = e.target.closest('a[data-pdf-download]');
+    if (!link) return;
+    e.preventDefault();
+    downloadWithFeedback({
+      url: link.href,
+      trigger: link,
+      loadingText: '…',
+      idleText: '↓ PDF',
+    });
+  });
 
   btnFilter.addEventListener('click', fetchReport);
 

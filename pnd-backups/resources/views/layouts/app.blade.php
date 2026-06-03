@@ -15,6 +15,9 @@
       </a>
       @auth
         <div class="flex items-center gap-3">
+          @if(auth()->user()->isSuperAdmin())
+            <a href="{{ route('audit.index') }}" class="text-sm text-slate-500 hover:underline">Auditoría</a>
+          @endif
           <a href="{{ route('password.edit') }}" class="text-sm text-slate-700 hover:underline">
             {{ auth()->user()->email }}
           </a>

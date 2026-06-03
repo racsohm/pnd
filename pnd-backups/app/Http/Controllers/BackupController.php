@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Backup;
+use App\Services\AuditService;
 use App\Services\InstanceDiscovery;
 use App\Services\MongoBackupService;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class BackupController extends Controller
     public function __construct(
         private InstanceDiscovery $discovery,
         private MongoBackupService $mongo,
+        private AuditService $audit,
     ) {}
 
     private function authorizeInstance(string $slug): array
@@ -52,21 +54,41 @@ class BackupController extends Controller
             'created_by'    => Auth::id(),
         ]);
 
+        $this->audit->log('backup.create', [
+            'instance_slug' => $slug,
+            'target_type'   => 'backup',
+            'target_name'   => $info['filename'],
+            'details'       => ['size_bytes' => $info['size_bytes']],
+        ]);
+
         return redirect()->route('instances.show', $slug)
             ->with('ok', "Respaldo creado: {$info['filename']}");
     }
 
     /** Descarga un .gz */
-    public function download(int $id)
+    public function download(Request $request, int $id)
     {
         $backup = Backup::findOrFail($id);
         if (! Auth::user()->canSeeInstance($backup->instance_slug)) abort(403);
         if (! $backup->exists()) {
             return back()->with('error', 'El archivo ya no está en disco.');
         }
-        return response()->download($backup->fullPath(), $backup->filename, [
+
+        $this->audit->log('backup.download', [
+            'instance_slug' => $backup->instance_slug,
+            'target_type'   => 'backup',
+            'target_id'     => (string) $id,
+            'target_name'   => $backup->filename,
+        ]);
+
+        $dl = $request->input('dl');
+        $response = response()->download($backup->fullPath(), $backup->filename, [
             'Content-Type' => 'application/gzip',
         ]);
+        if ($dl) {
+            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+        }
+        return $response;
     }
 
     /** Sube un .gz desde el navegador */
@@ -109,6 +131,12 @@ class BackupController extends Controller
             'notes'         => $request->input('notes'),
         ]);
 
+        $this->audit->log('backup.upload', [
+            'instance_slug' => $slug,
+            'target_type'   => 'backup',
+            'target_name'   => $finalName,
+        ]);
+
         return redirect()->route('instances.show', $slug)
             ->with('ok', "Respaldo subido: $finalName");
     }
@@ -135,6 +163,14 @@ class BackupController extends Controller
             return back()->with('error', 'Falló la restauración: '.$e->getMessage());
         }
 
+        $this->audit->log('backup.restore', [
+            'instance_slug' => $backup->instance_slug,
+            'target_type'   => 'backup',
+            'target_id'     => (string) $id,
+            'target_name'   => $backup->filename,
+            'details'       => ['drop' => $drop],
+        ]);
+
         return redirect()->route('instances.show', $backup->instance_slug)
             ->with('ok', "Restauración completa desde {$backup->filename}".($drop ? ' (con --drop)' : ' (sin --drop)'));
     }
@@ -150,6 +186,13 @@ class BackupController extends Controller
         }
         $slug = $backup->instance_slug;
         $name = $backup->filename;
+
+        $this->audit->log('backup.delete', [
+            'instance_slug' => $slug,
+            'target_type'   => 'backup',
+            'target_name'   => $name,
+        ]);
+
         $backup->delete();
 
         return redirect()->route('instances.show', $slug)

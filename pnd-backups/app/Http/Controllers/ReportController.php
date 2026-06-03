@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditService;
 use App\Services\DeclarationPdfService;
 use App\Services\InstanceDiscovery;
 use App\Services\ReportService;
@@ -19,6 +20,7 @@ class ReportController extends Controller
         private InstanceDiscovery $discovery,
         private ReportService $reports,
         private DeclarationPdfService $pdfService,
+        private AuditService $audit,
     ) {}
 
     public function index(string $slug)
@@ -134,11 +136,21 @@ class ReportController extends Controller
         $writer   = new Xlsx($spreadsheet);
         $filename = "declaraciones_{$slug}_{$from->format('Ymd')}_{$to->format('Ymd')}.xlsx";
 
-        return response()->streamDownload(
+        $this->audit->log('report.excel', [
+            'instance_slug' => $slug,
+            'details'       => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'rows' => count($rows)],
+        ]);
+
+        $dl = $request->input('dl');
+        $response = response()->streamDownload(
             fn() => $writer->save('php://output'),
             $filename,
             ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         );
+        if ($dl) {
+            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+        }
+        return $response;
     }
 
     /** Descarga el PDF de una sola declaración. */
@@ -152,10 +164,21 @@ class ReportController extends Controller
             abort(500, $e->getMessage());
         }
 
-        return response($pdf, 200, [
+        $this->audit->log('report.pdf', [
+            'instance_slug' => $slug,
+            'target_type'   => 'declaracion',
+            'target_id'     => $declaracionId,
+        ]);
+
+        $dl = $request->input('dl');
+        $response = response($pdf, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => "attachment; filename=\"declaracion_{$declaracionId}.pdf\"",
         ]);
+        if ($dl) {
+            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+        }
+        return $response;
     }
 
     /** Descarga un ZIP con los PDFs de todas las declaraciones del rango. */
@@ -183,9 +206,19 @@ class ReportController extends Controller
 
         $filename = "declaraciones_{$slug}_{$from->format('Ymd')}_{$to->format('Ymd')}.zip";
 
-        return response()->download($zipPath, $filename, [
+        $this->audit->log('report.zip', [
+            'instance_slug' => $slug,
+            'details'       => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'rows' => count($rows)],
+        ]);
+
+        $dl = $request->input('dl');
+        $response = response()->download($zipPath, $filename, [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
+        if ($dl) {
+            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+        }
+        return $response;
     }
 
     /** Vista HTML optimizada para impresión / Guardar como PDF. */

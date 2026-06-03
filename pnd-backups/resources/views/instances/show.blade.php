@@ -111,19 +111,28 @@
 
 <div class="grid gap-4 md:grid-cols-2 mb-6">
   <form method="POST" action="{{ route('backups.store', $instance['slug']) }}"
+        x-data="{ busy: false }"
+        @submit="busy = true"
         class="rounded-lg border bg-white p-4">
     @csrf
     <h2 class="font-semibold mb-1">Crear respaldo ahora</h2>
     <p class="text-xs text-slate-500 mb-3">
       Ejecuta <code>mongodump</code> contra esta instancia y guarda el .gz.
     </p>
-    <button class="rounded bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">
-      Generar respaldo
+    <button type="submit"
+            :disabled="busy"
+            class="rounded bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+      <template x-if="busy">
+        @include('partials.spinner')
+      </template>
+      <span x-text="busy ? 'Generando respaldo…' : 'Generar respaldo'">Generar respaldo</span>
     </button>
   </form>
 
   <form method="POST" action="{{ route('backups.upload', $instance['slug']) }}"
         enctype="multipart/form-data"
+        x-data="{ busy: false }"
+        @submit="busy = true"
         class="rounded-lg border bg-white p-4">
     @csrf
     <h2 class="font-semibold mb-1">Subir respaldo (.gz)</h2>
@@ -136,8 +145,13 @@
     @error('archive')<p class="text-xs text-rose-600 mb-2">{{ $message }}</p>@enderror
     <input type="text" name="notes" placeholder="Notas (opcional)"
            class="w-full rounded border-slate-300 text-sm mb-2" />
-    <button class="rounded bg-slate-700 text-white px-3 py-2 text-sm hover:bg-slate-600">
-      Subir
+    <button type="submit"
+            :disabled="busy"
+            class="rounded bg-slate-700 text-white px-3 py-2 text-sm hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+      <template x-if="busy">
+        @include('partials.spinner')
+      </template>
+      <span x-text="busy ? 'Subiendo…' : 'Subir'">Subir</span>
     </button>
   </form>
 </div>
@@ -234,7 +248,7 @@
       </thead>
       <tbody>
         @foreach ($backups as $b)
-          <tr class="border-b last:border-0 hover:bg-slate-50" x-data="{ open: false }">
+          <tr class="border-b last:border-0 hover:bg-slate-50" x-data="{ open: false, dlBusy: false }">
             <td class="px-4 py-2 font-mono text-xs">{{ $b->filename }}</td>
             <td class="px-4 py-2">
               @if ($b->source === 'dump')
@@ -247,7 +261,21 @@
             <td class="px-4 py-2 text-slate-500">{{ $b->created_at->format('Y-m-d H:i') }}</td>
             <td class="px-4 py-2 text-right whitespace-nowrap">
               <a href="{{ route('backups.download', $b->id) }}"
-                 class="text-slate-700 hover:underline text-sm">Descargar</a>
+                 :class="dlBusy ? 'opacity-50 pointer-events-none' : ''"
+                 class="text-slate-700 hover:underline text-sm"
+                 @click.prevent="
+                   dlBusy = true;
+                   downloadWithFeedback({
+                     url: $el.href,
+                     trigger: $el,
+                     loadingText: 'Descargando…',
+                     idleText: 'Descargar',
+                     onDone: () => dlBusy = false,
+                   });
+                 ">
+                <span x-show="!dlBusy">Descargar</span>
+                <span x-show="dlBusy" x-cloak>Descargando…</span>
+              </a>
               <button @click="open = true" type="button"
                       class="text-amber-700 hover:underline text-sm ml-2">Restaurar</button>
               <form method="POST" action="{{ route('backups.destroy', $b->id) }}"
@@ -261,7 +289,9 @@
               <div x-show="open" x-cloak
                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                 <form method="POST" action="{{ route('backups.restore', $b->id) }}"
-                      @click.away="open = false"
+                      x-data="{ busy: false }"
+                      @submit="busy = true"
+                      @click.away="if(!busy) open = false"
                       class="bg-white rounded-lg shadow-xl w-full max-w-md p-5 text-left">
                   @csrf
                   <h3 class="text-lg font-semibold mb-2">Restaurar respaldo</h3>
@@ -284,10 +314,15 @@
                   <input name="confirm" required
                          class="w-full rounded border-slate-300 text-sm mb-4" />
                   <div class="flex justify-end gap-2">
-                    <button type="button" @click="open = false"
+                    <button type="button" @click="if(!busy) open = false"
                             class="rounded border px-3 py-2 text-sm">Cancelar</button>
-                    <button class="rounded bg-amber-600 text-white px-3 py-2 text-sm hover:bg-amber-700">
-                      Restaurar ahora
+                    <button type="submit"
+                            :disabled="busy"
+                            class="rounded bg-amber-600 text-white px-3 py-2 text-sm hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+                      <template x-if="busy">
+                        @include('partials.spinner')
+                      </template>
+                      <span x-text="busy ? 'Restaurando…' : 'Restaurar ahora'">Restaurar ahora</span>
                     </button>
                   </div>
                 </form>

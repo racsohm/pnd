@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditService;
 use App\Services\InstanceDiscovery;
 use App\Services\MongoEditorService;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class EditorController extends Controller
     public function __construct(
         private InstanceDiscovery $discovery,
         private MongoEditorService $editor,
+        private AuditService $audit,
     ) {}
 
     private function authorizeInstance(string $slug): array
@@ -84,11 +86,22 @@ class EditorController extends Controller
             'institucion_valor' => ['nullable', 'string', 'max:300'],
         ]);
 
+        $beforeUser = null;
+        try { $beforeUser = $this->editor->getUser($slug, $id); } catch (\Throwable) {}
+
         try {
             $this->editor->updateUser($slug, $id, $data);
         } catch (\Throwable $e) {
             return back()->withInput()->with('error', 'No se pudo guardar: '.$e->getMessage());
         }
+
+        $this->audit->log('user.update', [
+            'instance_slug' => $slug,
+            'target_type'   => 'user',
+            'target_id'     => $id,
+            'target_name'   => $beforeUser['username'] ?? $beforeUser['email'] ?? null,
+            'details'       => $this->userDiff($data, $beforeUser) ?: null,
+        ]);
 
         return redirect()->route('users.edit', ['slug' => $slug, 'id' => $id])
             ->with('ok', 'Datos del usuario actualizados.');
@@ -105,11 +118,21 @@ class EditorController extends Controller
             'password.confirmed' => 'La confirmación no coincide.',
         ]);
 
+        $beforeUser = null;
+        try { $beforeUser = $this->editor->getUser($slug, $id); } catch (\Throwable) {}
+
         try {
             $this->editor->resetPassword($slug, $id, $data['password']);
         } catch (\Throwable $e) {
             return back()->with('error', 'No se pudo cambiar la contraseña: '.$e->getMessage());
         }
+
+        $this->audit->log('user.password_reset', [
+            'instance_slug' => $slug,
+            'target_type'   => 'user',
+            'target_id'     => $id,
+            'target_name'   => $beforeUser['username'] ?? $beforeUser['email'] ?? null,
+        ]);
 
         return redirect()->route('users.edit', ['slug' => $slug, 'id' => $id])
             ->with('ok', 'Contraseña actualizada. El usuario puede entrar con la nueva.');
@@ -124,11 +147,23 @@ class EditorController extends Controller
             'roles.*' => ['string', 'in:'.implode(',', MongoEditorService::ROLES)],
         ]);
 
+        $beforeUser = null;
+        try { $beforeUser = $this->editor->getUser($slug, $id); } catch (\Throwable) {}
+        $beforeRoles = $beforeUser['roles'] ?? [];
+
         try {
             $this->editor->setRoles($slug, $id, $data['roles']);
         } catch (\Throwable $e) {
             return back()->with('error', 'No se pudo cambiar el rol: '.$e->getMessage());
         }
+
+        $this->audit->log('user.roles_update', [
+            'instance_slug' => $slug,
+            'target_type'   => 'user',
+            'target_id'     => $id,
+            'target_name'   => $beforeUser['username'] ?? $beforeUser['email'] ?? null,
+            'details'       => ['before' => $beforeRoles, 'after' => $data['roles']],
+        ]);
 
         return redirect()->route('users.edit', ['slug' => $slug, 'id' => $id])
             ->with('ok', 'Roles actualizados.');
@@ -146,6 +181,9 @@ class EditorController extends Controller
             'return_to'     => ['nullable', 'string'],
         ]);
 
+        $beforeDecl = null;
+        try { $beforeDecl = $this->editor->getDeclaracion($slug, $id); } catch (\Throwable) {}
+
         try {
             $fecha = new \DateTimeImmutable($data['fecha']);
             $this->editor->updateDeclaracionFecha(
@@ -157,6 +195,22 @@ class EditorController extends Controller
         } catch (\Throwable $e) {
             return back()->with('error', 'No se pudo cambiar la fecha: '.$e->getMessage());
         }
+
+        $this->audit->log('declaracion.fecha_update', [
+            'instance_slug' => $slug,
+            'target_type'   => 'declaracion',
+            'target_id'     => $id,
+            'details'       => [
+                'before' => [
+                    'fecha'         => $this->mongoDateToString($beforeDecl['createdAt'] ?? null),
+                    'anioEjercicio' => $beforeDecl['anioEjercicio'] ?? null,
+                ],
+                'after' => [
+                    'fecha'         => $data['fecha'],
+                    'anioEjercicio' => $data['anioEjercicio'] ?? null,
+                ],
+            ],
+        ]);
 
         $target = $data['return_to'] ?? null;
         if ($target && str_starts_with($target, '/')) {
@@ -176,11 +230,29 @@ class EditorController extends Controller
             'confirm.in' => 'Debes escribir ELIMINAR para confirmar.',
         ]);
 
+        $beforeDecl = null;
+        try { $beforeDecl = $this->editor->getDeclaracion($slug, $id); } catch (\Throwable) {}
+
         try {
             $this->editor->deleteDeclaracion($slug, $id);
         } catch (\Throwable $e) {
             return back()->with('error', 'No se pudo eliminar: '.$e->getMessage());
         }
+
+        $this->audit->log('declaracion.delete', [
+            'instance_slug' => $slug,
+            'target_type'   => 'declaracion',
+            'target_id'     => $id,
+            'target_name'   => $beforeDecl
+                ? trim(($beforeDecl['tipoDeclaracion'] ?? '?').' '.($beforeDecl['anioEjercicio'] ?? ''))
+                : null,
+            'details'       => $beforeDecl ? [
+                'tipoDeclaracion' => $beforeDecl['tipoDeclaracion'] ?? null,
+                'anioEjercicio'   => $beforeDecl['anioEjercicio'] ?? null,
+                'firmada'         => $beforeDecl['firmada'] ?? null,
+                'fecha'           => $this->mongoDateToString($beforeDecl['createdAt'] ?? null),
+            ] : null,
+        ]);
 
         $target = $data['return_to'] ?? null;
         if ($target && str_starts_with($target, '/')) {
@@ -188,5 +260,60 @@ class EditorController extends Controller
         }
         return redirect()->route('instances.inspect', ['slug' => $slug, 'collection' => 'declaraciones'])
             ->with('ok', 'Declaración eliminada.');
+    }
+
+    // ── Helpers privados ─────────────────────────────────────────
+
+    /**
+     * Compara los campos enviados contra los valores actuales en Mongo
+     * y devuelve solo los campos que cambian, con formato before/after.
+     */
+    private function userDiff(array $submitted, ?array $before): array
+    {
+        $diff = ['before' => [], 'after' => []];
+
+        $simpleFields = ['username', 'nombre', 'primerApellido', 'segundoApellido', 'curp', 'rfc'];
+        foreach ($simpleFields as $field) {
+            if (array_key_exists($field, $submitted) && $submitted[$field] !== null) {
+                $old = $before[$field] ?? null;
+                $new = $submitted[$field];
+                // Comparación case-insensitive para campos que el servicio normaliza
+                if (mb_strtoupper((string) $old) !== mb_strtoupper((string) $new)) {
+                    $diff['before'][$field] = $old;
+                    $diff['after'][$field]  = $new;
+                }
+            }
+        }
+
+        foreach (['clave' => 'institucion_clave', 'valor' => 'institucion_valor'] as $mongoKey => $formKey) {
+            if (array_key_exists($formKey, $submitted) && $submitted[$formKey] !== null) {
+                $old = $before['institucion'][$mongoKey] ?? null;
+                $new = $submitted[$formKey];
+                if ($old !== $new) {
+                    $diff['before']['institucion.'.$mongoKey] = $old;
+                    $diff['after']['institucion.'.$mongoKey]  = $new;
+                }
+            }
+        }
+
+        if (empty($diff['before']) && empty($diff['after'])) return [];
+        return $diff;
+    }
+
+    /**
+     * Convierte la representación JSON de un UTCDateTime de MongoDB a
+     * una cadena de fecha legible (Y-m-d).
+     * El formato extendido de BSON es: {"$date": {"$numberLong": "ms"}}
+     */
+    private function mongoDateToString(mixed $raw): ?string
+    {
+        if (! $raw) return null;
+        $ms = $raw['$date']['$numberLong'] ?? null;
+        if ($ms === null) return null;
+        try {
+            return \Carbon\Carbon::createFromTimestampMs((int) $ms)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

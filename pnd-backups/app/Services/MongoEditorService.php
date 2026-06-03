@@ -105,6 +105,16 @@ class MongoEditorService
 
     // ── Declaraciones ────────────────────────────────────────────
 
+    public function getDeclaracion(string $slug, string $declId): ?array
+    {
+        $doc = $this->declaraciones($slug)->findOne(
+            ['_id' => $this->oid($declId)],
+            ['projection' => ['createdAt' => 1, 'anioEjercicio' => 1, 'tipoDeclaracion' => 1, 'firmada' => 1]],
+        );
+        if (! $doc) return null;
+        return json_decode(json_encode($doc, JSON_UNESCAPED_UNICODE), true);
+    }
+
     /** Lista declaraciones que pertenecen al usuario, más recientes primero. */
     public function listDeclaracionesForUser(string $slug, string $userId): array
     {

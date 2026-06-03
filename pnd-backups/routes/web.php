@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EditorController;
@@ -110,4 +111,7 @@ Route::middleware('admin')->group(function () {
     Route::delete('/instances/{slug}/declaraciones/{id}', [EditorController::class, 'deleteDeclaracion'])
         ->where('id', '[a-f0-9]{24}')
         ->name('declaraciones.destroy');
+
+    // ── Log de auditoría ──────────────────────────────────────────
+    Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 });
