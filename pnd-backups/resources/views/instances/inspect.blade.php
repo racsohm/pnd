@@ -1,7 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
-<a href="{{ route('instances.show', $instance['slug']) }}" class="text-sm text-slate-500 hover:underline">← {{ $instance['name'] }}</a>
+<div class="flex items-center justify-between">
+  <a href="{{ route('instances.show', $instance['slug']) }}" class="text-sm text-slate-500 hover:underline">← {{ $instance['name'] }}</a>
+  @if (auth()->user()->canDownloadReportsFor($instance['slug']))
+    <a href="{{ route('instances.reports.index', $instance['slug']) }}"
+       class="rounded border px-3 py-1.5 text-sm hover:bg-slate-50">
+      Informes →
+    </a>
+  @endif
+</div>
 
 <div class="mt-2 mb-5">
   <h1 class="text-2xl font-semibold">Inspector</h1>

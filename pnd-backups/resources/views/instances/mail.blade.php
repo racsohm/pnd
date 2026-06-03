@@ -132,6 +132,21 @@
     </div>
   </details>
 
+  {{-- URL restablecimiento de contraseña --}}
+  <div class="pt-2 border-t">
+    <label class="block text-sm font-medium mb-1">
+      URL base para restablecimiento de contraseña
+      <span class="text-slate-400 font-normal">(FE_RESET_PASSWORD_URL)</span>
+    </label>
+    <input type="text" name="fe_reset_password_url" maxlength="500"
+           value="{{ old('fe_reset_password_url', $fields['fe_reset_password_url']) }}"
+           placeholder="https://ejemplo.puebla.app"
+           class="w-full rounded border-slate-300 text-sm" />
+    <p class="text-xs text-slate-400 mt-1">
+      El backend le agrega <code>/restablecer-contrasena</code> al enviar el correo de recuperación.
+    </p>
+  </div>
+
   {{-- Opción de rebuild --}}
   <label class="flex items-start gap-2 text-sm pt-2 border-t">
     <input type="checkbox" name="rebuild" value="1" checked class="mt-1 rounded">

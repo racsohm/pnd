@@ -32,7 +32,11 @@ class BackupController extends Controller
     /** Crea un dump nuevo (mongodump) */
     public function store(string $slug)
     {
-        $this->authorizeInstance($slug);
+        $inst = $this->authorizeInstance($slug);
+
+        if (! Auth::user()->canGenerateBackupFor($slug)) {
+            abort(403, 'No tienes permiso para generar respaldos en esta instancia.');
+        }
 
         try {
             $info = $this->mongo->dump($slug);
@@ -69,6 +73,10 @@ class BackupController extends Controller
     public function upload(Request $request, string $slug)
     {
         $this->authorizeInstance($slug);
+
+        if (! Auth::user()->canGenerateBackupFor($slug)) {
+            abort(403, 'No tienes permiso para subir respaldos en esta instancia.');
+        }
 
         $maxKb = ((int) config('backups.upload_max_mb', 512)) * 1024;
         $request->validate([
@@ -109,7 +117,7 @@ class BackupController extends Controller
     public function restore(Request $request, int $id)
     {
         $backup = Backup::findOrFail($id);
-        if (! Auth::user()->canSeeInstance($backup->instance_slug)) abort(403);
+        if (! Auth::user()->isSuperAdmin()) abort(403, 'Solo super administradores pueden restaurar respaldos.');
         if (! $backup->exists()) {
             return back()->with('error', 'El archivo no está en disco.');
         }
@@ -135,7 +143,7 @@ class BackupController extends Controller
     public function destroy(int $id)
     {
         $backup = Backup::findOrFail($id);
-        if (! Auth::user()->canSeeInstance($backup->instance_slug)) abort(403);
+        if (! Auth::user()->isSuperAdmin()) abort(403, 'Solo super administradores pueden eliminar respaldos.');
 
         if ($backup->exists()) {
             @unlink($backup->fullPath());

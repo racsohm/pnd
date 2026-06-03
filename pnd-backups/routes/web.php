@@ -7,9 +7,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EditorController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\InstanceController;
+use App\Http\Controllers\InstanceMemberController;
 use App\Http\Controllers\FrontendRebuildController;
 use App\Http\Controllers\InstituteController;
 use App\Http\Controllers\MailConfigController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -58,6 +60,35 @@ Route::middleware('admin')->group(function () {
         ->name('backups.restore');
     Route::delete('/backups/{id}', [BackupController::class, 'destroy'])
         ->name('backups.destroy');
+
+    // ── Gestión de miembros por instancia ─────────────────────────
+    Route::get('/instances/{slug}/members', [InstanceMemberController::class, 'index'])
+        ->name('instances.members.index');
+    Route::get('/instances/{slug}/members/create', [InstanceMemberController::class, 'create'])
+        ->name('instances.members.create');
+    Route::post('/instances/{slug}/members', [InstanceMemberController::class, 'store'])
+        ->name('instances.members.store');
+    Route::get('/instances/{slug}/members/{member}/edit', [InstanceMemberController::class, 'edit'])
+        ->name('instances.members.edit');
+    Route::put('/instances/{slug}/members/{member}', [InstanceMemberController::class, 'update'])
+        ->name('instances.members.update');
+    Route::delete('/instances/{slug}/members/{member}', [InstanceMemberController::class, 'destroy'])
+        ->name('instances.members.destroy');
+
+    // ── Informes de declaraciones ─────────────────────────────────
+    Route::get('/instances/{slug}/reports',                              [ReportController::class, 'index'])
+        ->name('instances.reports.index');
+    Route::get('/instances/{slug}/reports/preview',                      [ReportController::class, 'preview'])
+        ->name('instances.reports.preview');
+    Route::get('/instances/{slug}/reports/excel',                        [ReportController::class, 'exportExcel'])
+        ->name('instances.reports.excel');
+    Route::get('/instances/{slug}/reports/print',                        [ReportController::class, 'exportPrint'])
+        ->name('instances.reports.print');
+    Route::get('/instances/{slug}/reports/zip',                          [ReportController::class, 'downloadZip'])
+        ->name('instances.reports.zip');
+    Route::get('/instances/{slug}/declaraciones/{declaracionId}/pdf',    [ReportController::class, 'downloadPdf'])
+        ->where('declaracionId', '[a-f0-9]{24}')
+        ->name('declaraciones.pdf');
 
     // ── Editor de datos (usuarios y declaraciones) ─────────────
     Route::get('/instances/{slug}/users/{id}/edit', [EditorController::class, 'editUser'])

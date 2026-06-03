@@ -77,6 +77,8 @@ class InstanceDiscovery
                 'mongo_pass'    => $env['MONGO_PASSWORD'],
                 'mongo_db'      => $env['MONGO_DB'],
                 'public_url'    => $env['SERVER_PUBLIC_URL'] ?? $env['PAGE_URL'] ?? null,
+                'reports_url'   => rtrim($env['REPORTS_URL'] ?? '', '/'),
+                'reports_key'   => $env['REPORTS_API_KEY'] ?? null,
             ];
         }
 

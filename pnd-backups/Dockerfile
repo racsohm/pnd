@@ -45,8 +45,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 # ── App ──────────────────────────────────────────────────────────
 WORKDIR /var/www/html
 COPY composer.json composer.lock* ./
-RUN composer install --no-dev --no-interaction --no-progress --prefer-dist \
-    || composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts
+RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --ignore-platform-req=ext-gd \
+    || composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --ignore-platform-req=ext-gd
 
 COPY package.json package-lock.json* ./
 # Sí instalamos devDeps porque vite/tailwind solo se usan para build;

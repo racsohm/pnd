@@ -16,6 +16,7 @@ class MailConfigService
         'USE_SMTP', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE',
         'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM_EMAIL',
         'SENDGRID_API_KEY', 'SENDGRID_MAIL_SENDER',
+        'FE_RESET_PASSWORD_URL',
     ];
 
     public function __construct(private InstanceDiscovery $discovery) {}
@@ -48,8 +49,9 @@ class MailConfigService
             'smtp_user'            => $env['SMTP_USER'] ?? '',
             'smtp_password'        => $env['SMTP_PASSWORD'] ?? '',
             'smtp_from_email'      => $env['SMTP_FROM_EMAIL'] ?? '',
-            'sendgrid_api_key'     => $env['SENDGRID_API_KEY'] ?? '',
-            'sendgrid_mail_sender' => $env['SENDGRID_MAIL_SENDER'] ?? '',
+            'sendgrid_api_key'          => $env['SENDGRID_API_KEY'] ?? '',
+            'sendgrid_mail_sender'      => $env['SENDGRID_MAIL_SENDER'] ?? '',
+            'fe_reset_password_url'     => $env['FE_RESET_PASSWORD_URL'] ?? '',
         ];
     }
 
@@ -68,15 +70,16 @@ class MailConfigService
         }
 
         $map = [
-            'USE_SMTP'             => $fields['use_smtp'] ? 'true' : 'false',
-            'SMTP_HOST'            => $fields['smtp_host'],
-            'SMTP_PORT'            => (string) $fields['smtp_port'],
-            'SMTP_SECURE'          => $fields['smtp_secure'] ? 'true' : 'false',
-            'SMTP_USER'            => $fields['smtp_user'],
-            'SMTP_PASSWORD'        => $fields['smtp_password'],
-            'SMTP_FROM_EMAIL'      => $fields['smtp_from_email'],
-            'SENDGRID_API_KEY'     => $fields['sendgrid_api_key'],
-            'SENDGRID_MAIL_SENDER' => $fields['sendgrid_mail_sender'],
+            'USE_SMTP'              => $fields['use_smtp'] ? 'true' : 'false',
+            'SMTP_HOST'             => $fields['smtp_host'],
+            'SMTP_PORT'             => (string) $fields['smtp_port'],
+            'SMTP_SECURE'           => $fields['smtp_secure'] ? 'true' : 'false',
+            'SMTP_USER'             => $fields['smtp_user'],
+            'SMTP_PASSWORD'         => $fields['smtp_password'],
+            'SMTP_FROM_EMAIL'       => $fields['smtp_from_email'],
+            'SENDGRID_API_KEY'      => $fields['sendgrid_api_key'],
+            'SENDGRID_MAIL_SENDER'  => $fields['sendgrid_mail_sender'],
+            'FE_RESET_PASSWORD_URL' => $fields['fe_reset_password_url'],
         ];
 
         $lines   = file($file, FILE_IGNORE_NEW_LINES) ?: [];

@@ -7,7 +7,8 @@
     "ext-mongodb": "*",
     "laravel/framework": "^11.9",
     "laravel/tinker": "^2.9",
-    "mongodb/mongodb": "^2.0"
+    "mongodb/mongodb": "^2.0",
+    "phpoffice/phpspreadsheet": "^5.7"
   },
   "autoload": {
     "psr-4": {

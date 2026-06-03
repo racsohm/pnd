@@ -11,18 +11,34 @@
     </p>
   </div>
   <div class="flex items-center gap-2">
-    <a href="{{ route('instances.institute', $instance['slug']) }}"
-       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
-      Datos de institución →
-    </a>
-    <a href="{{ route('instances.mail', $instance['slug']) }}"
-       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
-      Correo →
-    </a>
-    <a href="{{ route('instances.inspect', $instance['slug']) }}"
-       class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
-      Inspector →
-    </a>
+    @if (auth()->user()->canManageUsersFor($instance['slug']))
+      <a href="{{ route('instances.members.index', $instance['slug']) }}"
+         class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+        Usuarios →
+      </a>
+    @endif
+    @if (auth()->user()->canDownloadReportsFor($instance['slug']))
+      <a href="{{ route('instances.reports.index', $instance['slug']) }}"
+         class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+        Informes →
+      </a>
+    @endif
+    @if (auth()->user()->isSuperAdmin())
+      <a href="{{ route('instances.institute', $instance['slug']) }}"
+         class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+        Datos de institución →
+      </a>
+      <a href="{{ route('instances.mail', $instance['slug']) }}"
+         class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+        Correo →
+      </a>
+    @endif
+    @if (auth()->user()->isSuperAdmin())
+      <a href="{{ route('instances.inspect', $instance['slug']) }}"
+         class="rounded border px-3 py-2 text-sm hover:bg-slate-50">
+        Inspector →
+      </a>
+    @endif
   </div>
 </div>
 

@@ -45,8 +45,9 @@ class MailConfigController extends Controller
                 'smtp_user'            => '',
                 'smtp_password'        => '',
                 'smtp_from_email'      => '',
-                'sendgrid_api_key'     => '',
-                'sendgrid_mail_sender' => '',
+                'sendgrid_api_key'      => '',
+                'sendgrid_mail_sender'  => '',
+                'fe_reset_password_url' => '',
             ];
             $error = $e->getMessage();
         }
@@ -69,9 +70,10 @@ class MailConfigController extends Controller
             'smtp_user'            => ['nullable', 'string', 'max:255'],
             'smtp_password'        => ['nullable', 'string', 'max:255'],
             'smtp_from_email'      => ['nullable', 'string', 'max:255'],
-            'sendgrid_api_key'     => ['nullable', 'string', 'max:255'],
-            'sendgrid_mail_sender' => ['nullable', 'string', 'max:255'],
-            'rebuild'              => ['nullable'],
+            'sendgrid_api_key'      => ['nullable', 'string', 'max:255'],
+            'sendgrid_mail_sender'  => ['nullable', 'string', 'max:255'],
+            'fe_reset_password_url' => ['nullable', 'string', 'max:500'],
+            'rebuild'               => ['nullable'],
         ]);
 
         $fields = [
@@ -82,8 +84,9 @@ class MailConfigController extends Controller
             'smtp_user'            => trim($data['smtp_user'] ?? ''),
             'smtp_password'        => $data['smtp_password'] ?? '',
             'smtp_from_email'      => trim($data['smtp_from_email'] ?? ''),
-            'sendgrid_api_key'     => trim($data['sendgrid_api_key'] ?? ''),
-            'sendgrid_mail_sender' => trim($data['sendgrid_mail_sender'] ?? ''),
+            'sendgrid_api_key'      => trim($data['sendgrid_api_key'] ?? ''),
+            'sendgrid_mail_sender'  => trim($data['sendgrid_mail_sender'] ?? ''),
+            'fe_reset_password_url' => trim($data['fe_reset_password_url'] ?? ''),
         ];
 
         try {
