@@ -293,6 +293,8 @@ if $ready; then
   fi
   info "Nginx puede publicarla en http://${nginx_host}/ usando $NGINX_FILE."
   info "Para activar el virtual host en Nginx host: copia el archivo a sites-available, enlázalo en sites-enabled, valida con nginx -t y recarga Nginx."
+  info "Si UFW está activo, permite el tráfico web con: bash $SCRIPT_DIR/ufw-puertos.sh --nginx"
+  info "No abras deploymentPort en UFW: la API solo escucha en 127.0.0.1 y debe recibir tráfico mediante Nginx."
 else
   warn "El contenedor inició, pero la API no respondió. Revisa los logs:"
   compose logs --tail 60 seseap-api || true

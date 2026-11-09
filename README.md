@@ -134,6 +134,17 @@ bash api-interconexion.sh --remove  # retira solo la API de la instancia selecci
 
 El asistente genera `nginx-seseap-<instancia>.conf` con un virtual host que proxya hacia el puerto local elegido. Para activarlo en Nginx del host, copia ese archivo a `sites-available`, enlázalo en `sites-enabled`, valida con `nginx -t` y recarga Nginx. Después puedes habilitar HTTPS con Certbot. No crea ni elimina MongoDB ni modifica sus datos; guarda la configuración de la API en `.env.seseap` con permisos restringidos. La API usa las credenciales Mongo de la instancia PND seleccionada; para acceso más limitado conviene configurar un usuario Mongo dedicado cuando se confirme el mecanismo de autenticación que espera el paquete SESEAP. El paquete incluye `MongoDB.Driver` 2.13.2, incompatible con MongoDB Server 8.1 y posterior; Swagger puede responder aunque fallen las operaciones Mongo.
 
+### `ufw-puertos.sh`
+Agrega reglas TCP de entrada a UFW después de mostrar los puertos y pedir confirmación. Para publicar Nginx permite HTTP (80) y pregunta si debe permitir HTTPS (443); también admite puertos concretos para una instancia PND. Requiere UFW instalado y ejecutarlo como root o con `sudo`. No habilita UFW ni abre el puerto local de la API SESEAP; ese puerto solo debe recibir tráfico desde Nginx.
+
+```bash
+bash ufw-puertos.sh --nginx    # HTTP y, si se confirma, HTTPS
+bash ufw-puertos.sh 8080 3010 # puertos elegidos manualmente
+bash ufw-puertos.sh            # solicita los puertos (por defecto 80 443)
+```
+
+No abras los puertos internos de MongoDB (27017) ni reportes (3001).
+
 Los valores `ApiName`, `ClientId` y scopes del paquete SESEAP deben corresponder a los registrados para la institución ante SESEAP. El artefacto incluido conserva los valores institucionales que ya trae.
 
 ### `prep-alpine.sh`
