@@ -22,7 +22,7 @@ services:
       IdentityServerParameters__Scopes__write: "write:${SESEAP_CLIENT_SCOPE_WRITE:?clientScopeWrite es obligatorio}"
       IdentityServerParameters__vpn: "${SESEAP_VPN:-false}"
     ports:
-      - "127.0.0.1:${SESEAP_API_PORT:-9000}:80"
+      - "0.0.0.0:${SESEAP_API_PORT:-9000}:80"
     networks:
       - mongo
 

@@ -241,7 +241,7 @@ umask 077
 chmod 600 "$STATE_ENV"
 
 # Deja un virtual host listo para Nginx instalado en el host. La API queda
-# publicada solo en loopback; Nginx es el punto de entrada público.
+# publicada en todas las interfaces y también puede atenderse directamente.
 NGINX_FILE="$INSTANCE_DIR/nginx-seseap-$INSTANCE_SLUG.conf"
 cat > "$NGINX_FILE" <<EOF
 server {
@@ -285,7 +285,7 @@ done
 compose ps
 if $ready; then
   swagger_status="$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${api_port}/swagger/v1/swagger.json" 2>/dev/null || true)"
-  info "El proceso API responde en http://127.0.0.1:${api_port}."
+  info "El proceso API responde en http://127.0.0.1:${api_port}; Docker publica el puerto en todas las interfaces (0.0.0.0)."
   if [[ "$swagger_status" == 200 ]]; then
     info "Swagger responde en http://127.0.0.1:${api_port}/swagger."
   else
@@ -293,8 +293,8 @@ if $ready; then
   fi
   info "Nginx puede publicarla en http://${nginx_host}/ usando $NGINX_FILE."
   info "Para activar el virtual host en Nginx host: copia el archivo a sites-available, enlázalo en sites-enabled, valida con nginx -t y recarga Nginx."
-  info "Si UFW está activo, permite el tráfico web con: bash $SCRIPT_DIR/ufw-puertos.sh --nginx"
-  info "No abras deploymentPort en UFW: la API solo escucha en 127.0.0.1 y debe recibir tráfico mediante Nginx."
+  info "Para permitir acceso directo mediante UFW, ejecuta: bash $SCRIPT_DIR/ufw-puertos.sh $api_port"
+  info "También puedes publicar la API mediante Nginx usando el virtual host generado en $NGINX_FILE."
 else
   warn "El contenedor inició, pero la API no respondió. Revisa los logs:"
   compose logs --tail 60 seseap-api || true

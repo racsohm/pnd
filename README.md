@@ -125,7 +125,7 @@ bash nueva-instancia.sh inst3 3020 8082
 ```
 
 ### `api-interconexion.sh`
-Agrega la API de interconexión SESEAP a una instancia PND ya configurada. Detecta las instalaciones disponibles, permite elegir una y solicita descripción institucional, `apiName`, `clientId`, `clientScopeRead`, `clientScopeWrite`, usuario/contraseña Mongo, host, puerto, base y `deploymentPort` (por omisión, 9000). La descripción se propone desde `ente_publico` en el `instituciones.json` de la instancia; si no existe, se solicita. `apiName` se deriva de esa descripción y se puede corregir en el prompt, por lo que no queda fijado a un municipio. El nombre del contenedor añade el `apiName` normalizado como sufijo. A cada scope base le antepone `read:` o `write:`. Swagger presenta ambos y marca lectura por omisión; se puede autorizar únicamente lectura. El host, puerto, base, usuario y contraseña comienzan con los valores de la instancia elegida; dejar vacíos usuario o contraseña conserva los valores de PND. También solicita el dominio que atenderá Nginx. La API queda enlazada a `127.0.0.1` para que el acceso público pase por el proxy inverso; `vpn=false` por omisión.
+Agrega la API de interconexión SESEAP a una instancia PND ya configurada. Detecta las instalaciones disponibles, permite elegir una y solicita descripción institucional, `apiName`, `clientId`, `clientScopeRead`, `clientScopeWrite`, usuario/contraseña Mongo, host, puerto, base y `deploymentPort` (por omisión, 9000). La descripción se propone desde `ente_publico` en el `instituciones.json` de la instancia; si no existe, se solicita. `apiName` se deriva de esa descripción y se puede corregir en el prompt, por lo que no queda fijado a un municipio. El nombre del contenedor añade el `apiName` normalizado como sufijo. A cada scope base le antepone `read:` o `write:`. Swagger presenta ambos y marca lectura por omisión; se puede autorizar únicamente lectura. El host, puerto, base, usuario y contraseña comienzan con los valores de la instancia elegida; dejar vacíos usuario o contraseña conserva los valores de PND. También solicita el dominio que atenderá Nginx. Docker publica la API en `0.0.0.0:<deploymentPort>` para permitir conexiones desde otros servidores; también puede usarse mediante Nginx. `vpn=false` por omisión.
 
 ```bash
 bash api-interconexion.sh
@@ -135,15 +135,16 @@ bash api-interconexion.sh --remove  # retira solo la API de la instancia selecci
 El asistente genera `nginx-seseap-<instancia>.conf` con un virtual host que proxya hacia el puerto local elegido. Para activarlo en Nginx del host, copia ese archivo a `sites-available`, enlázalo en `sites-enabled`, valida con `nginx -t` y recarga Nginx. Después puedes habilitar HTTPS con Certbot. No crea ni elimina MongoDB ni modifica sus datos; guarda la configuración de la API en `.env.seseap` con permisos restringidos. La API usa las credenciales Mongo de la instancia PND seleccionada; para acceso más limitado conviene configurar un usuario Mongo dedicado cuando se confirme el mecanismo de autenticación que espera el paquete SESEAP. El paquete incluye `MongoDB.Driver` 2.13.2, incompatible con MongoDB Server 8.1 y posterior; Swagger puede responder aunque fallen las operaciones Mongo.
 
 ### `ufw-puertos.sh`
-Agrega reglas TCP de entrada a UFW después de mostrar los puertos y pedir confirmación. Para publicar Nginx permite HTTP (80) y pregunta si debe permitir HTTPS (443); también admite puertos concretos para una instancia PND. Requiere UFW instalado y ejecutarlo como root o con `sudo`. No habilita UFW ni abre el puerto local de la API SESEAP; ese puerto solo debe recibir tráfico desde Nginx.
+Agrega reglas TCP de entrada a UFW después de mostrar los puertos y pedir confirmación. Para publicar Nginx permite HTTP (80) y pregunta si debe permitir HTTPS (443); también admite puertos concretos de una instancia PND o de la API SESEAP. Requiere UFW instalado y ejecutarlo como root o con `sudo`. No habilita UFW automáticamente.
 
 ```bash
 bash ufw-puertos.sh --nginx    # HTTP y, si se confirma, HTTPS
+bash ufw-puertos.sh 9000       # acceso directo a la API SESEAP
 bash ufw-puertos.sh 8080 3010 # puertos elegidos manualmente
 bash ufw-puertos.sh            # solicita los puertos (por defecto 80 443)
 ```
 
-No abras los puertos internos de MongoDB (27017) ni reportes (3001).
+La API SESEAP se publica en `0.0.0.0:<deploymentPort>`; si necesitas acceso desde otros servidores, permite ese puerto en UFW (por ejemplo, `bash ufw-puertos.sh 9000`). No abras los puertos internos de MongoDB (27017) ni reportes (3001).
 
 Los valores `ApiName`, `ClientId` y scopes del paquete SESEAP deben corresponder a los registrados para la institución ante SESEAP. El artefacto incluido conserva los valores institucionales que ya trae.
 

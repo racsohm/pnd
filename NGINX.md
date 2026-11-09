@@ -268,7 +268,7 @@ server {
 
 ## API de interconexión SESEAP
 
-`bash api-interconexion.sh` solicita el puerto local de la API y el nombre de host público. La API solo se enlaza a `127.0.0.1`; el asistente genera `nginx-seseap-<instancia>.conf` con un virtual host que proxya `/` al puerto elegido.
+`bash api-interconexion.sh` solicita el puerto de la API y el nombre de host público. La API se publica en `0.0.0.0` para permitir conexiones desde otros servidores; el asistente genera `nginx-seseap-<instancia>.conf` con un virtual host de Nginx que proxya `/` al puerto elegido.
 
 Activa el archivo generado en el host donde corre Nginx:
 
