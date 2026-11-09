@@ -1,0 +1,32 @@
+# Add-on API SESEAP. No crea otra instancia de Mongo: se conecta al
+# contenedor pdnmx-mongo por la red Docker indicada por el script.
+services:
+  seseap-api:
+    build:
+      context: ./seseap-api
+      dockerfile: Dockerfile
+    image: pndmx-seseap-api:local
+    container_name: "${SESEAP_CONTAINER_NAME:-pndmx-seseap-api}"
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: "http://+:80"
+      DeclaracionesConnection__HostName: "${MONGO_HOSTNAME:-pdnmx-mongo}"
+      DeclaracionesConnection__Port: "${MONGO_PORT:-27017}"
+      DeclaracionesConnection__DatabaseName: "${MONGO_DB:?MONGO_DB debe estar en el .env del backend PND}"
+      DeclaracionesConnection__UserName: "${MONGO_USERNAME:?MONGO_USERNAME debe estar en el .env del backend PND}"
+      DeclaracionesConnection__Password: "${MONGO_PASSWORD:?MONGO_PASSWORD debe estar en el .env del backend PND}"
+      IdentityServerParameters__ApiName: "${SESEAP_API_NAME:?apiName debe definirse a partir de la configuración institucional}"
+      IdentityServerParameters__ClientId: "${SESEAP_CLIENT_ID:?clientId es obligatorio}"
+      IdentityServerParameters__ClientDescription: "${SESEAP_CLIENT_DESCRIPTION:?clientDescription es obligatorio}"
+      IdentityServerParameters__Scopes__read: "read:${SESEAP_CLIENT_SCOPE_READ:?clientScopeRead es obligatorio}"
+      IdentityServerParameters__Scopes__write: "write:${SESEAP_CLIENT_SCOPE_WRITE:?clientScopeWrite es obligatorio}"
+      IdentityServerParameters__vpn: "${SESEAP_VPN:-false}"
+    ports:
+      - "127.0.0.1:${SESEAP_API_PORT:-9000}:80"
+    networks:
+      - mongo
+
+networks:
+  mongo:
+    external: true
+    name: "${MONGO_DOCKER_NETWORK:?La red Docker de Mongo debe detectarse al ejecutar api-interconexion.sh}"

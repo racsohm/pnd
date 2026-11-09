@@ -13,6 +13,7 @@ SistemaDeclaraciones_reportes/
 #    subproyectos como pnd-backups/) ──────────────────────────
 /docker-compose.yml
 /docker-compose.shared.yml
+/nginx-seseap-*.conf
 
 # ── Misceláneos del SO/editor ─────────────────────────────────
 .DS_Store

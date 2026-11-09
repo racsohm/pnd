@@ -1,0 +1,4 @@
+**/ref
+**/*.pdb
+**/runtimes/win
+**/runtimes/osx

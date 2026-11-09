@@ -11,6 +11,7 @@ Guía para exponer la plataforma a Internet con HTTPS usando nginx como reverse 
 - [Decisión clave: serverUrl del frontend](#decisión-clave-serverurl-del-frontend)
 - [Pasos de despliegue](#pasos-de-despliegue)
 - [Configuración nginx (una instancia)](#configuración-nginx-una-instancia)
+- [API de interconexión SESEAP](#api-de-interconexión-seseap)
 - [Configuración nginx (multi-instancia con subdominios)](#configuración-nginx-multi-instancia-con-subdominios)
 - [Hardening adicional](#hardening-adicional)
 - [Verificación post-deploy](#verificación-post-deploy)
@@ -264,6 +265,22 @@ server {
 ```
 
 ---
+
+## API de interconexión SESEAP
+
+`bash api-interconexion.sh` solicita el puerto local de la API y el nombre de host público. La API solo se enlaza a `127.0.0.1`; el asistente genera `nginx-seseap-<instancia>.conf` con un virtual host que proxya `/` al puerto elegido.
+
+Activa el archivo generado en el host donde corre Nginx:
+
+```bash
+sudo cp nginx-seseap-<instancia>.conf /etc/nginx/sites-available/seseap-api
+sudo ln -s /etc/nginx/sites-available/seseap-api /etc/nginx/sites-enabled/seseap-api
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx -d api.tudominio.gob.mx
+```
+
+Sustituye `<instancia>` por el nombre seleccionado en el asistente y `api.tudominio.gob.mx` por el mismo host que configuraste. Si Nginx ya tiene un virtual host HTTPS para ese dominio, integra el `location` generado en ese bloque en vez de crear otro `server` que escuche en el mismo puerto. La URL de Swagger quedará en `https://api.tudominio.gob.mx/swagger` una vez emitido el certificado.
 
 ## Configuración nginx (multi-instancia con subdominios)
 
