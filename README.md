@@ -130,7 +130,10 @@ Agrega la API de interconexión SESEAP a una instancia PND ya configurada. Detec
 ```bash
 bash api-interconexion.sh
 bash api-interconexion.sh --remove  # retira solo la API de la instancia seleccionada
+bash api-interconexion.sh --rebuild # elige una API ya creada y la reconstruye
 ```
+
+Para actualizar una instalación existente, primero actualiza este repositorio (`git pull origin main`) y ejecuta `bash api-interconexion.sh --rebuild`. El comando muestra solo instancias con `.env.seseap`, reconstruye la API elegida y conserva sus valores y credenciales guardados.
 
 El asistente genera `nginx-seseap-<instancia>.conf` con un virtual host que proxya hacia el puerto local elegido. Para activarlo en Nginx del host, copia ese archivo a `sites-available`, enlázalo en `sites-enabled`, valida con `nginx -t` y recarga Nginx. Después puedes habilitar HTTPS con Certbot. No crea ni elimina MongoDB ni modifica sus datos; guarda la configuración de la API en `.env.seseap` con permisos restringidos. La API usa las credenciales Mongo de la instancia PND seleccionada; para acceso más limitado conviene configurar un usuario Mongo dedicado cuando se confirme el mecanismo de autenticación que espera el paquete SESEAP. El paquete incluye `MongoDB.Driver` 2.13.2, incompatible con MongoDB Server 8.1 y posterior; Swagger puede responder aunque fallen las operaciones Mongo.
 

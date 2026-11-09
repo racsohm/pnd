@@ -5,13 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MONGO_CONTAINER="${MONGO_CONTAINER:-pdnmx-mongo}"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.seseap.yml"
 REMOVE=false
+REBUILD=false
 
-if [[ "${1:-}" == "--remove" ]]; then
-  REMOVE=true
-elif [[ $# -gt 0 ]]; then
-  echo "Uso: $0 [--remove]" >&2
-  exit 2
-fi
+case "${1:-}" in
+  --remove) REMOVE=true ;;
+  --rebuild) REBUILD=true ;;
+  "") ;;
+  *) echo "Uso: $0 [--remove|--rebuild]" >&2; exit 2 ;;
+esac
+[[ $# -le 1 ]] || { echo "Uso: $0 [--remove|--rebuild]" >&2; exit 2; }
 
 fail() { echo "[ERROR] $*" >&2; exit 1; }
 info() { echo "[INFO] $*"; }
@@ -25,8 +27,12 @@ docker compose version >/dev/null 2>&1 || fail "Falta el plugin docker compose."
 # Descubre la instalación de la carpeta actual y las instalaciones hermanas.
 parent_dir="$(dirname "$SCRIPT_DIR")"
 declare -a instances=()
+declare -a api_instances=()
 if [[ -f "$SCRIPT_DIR/SistemaDeclaraciones_backend/.env" && -f "$SCRIPT_DIR/docker-compose.yml" ]]; then
   instances+=("$SCRIPT_DIR")
+fi
+if [[ -f "$SCRIPT_DIR/.env.seseap" ]]; then
+  api_instances+=("$SCRIPT_DIR")
 fi
 for candidate in "$parent_dir"/*; do
   [[ -d "$candidate" ]] || continue
@@ -34,6 +40,38 @@ for candidate in "$parent_dir"/*; do
   [[ -f "$candidate/SistemaDeclaraciones_backend/.env" && -f "$candidate/docker-compose.yml" ]] || continue
   instances+=("$candidate")
 done
+
+for candidate in "$parent_dir"/*; do
+  [[ -d "$candidate" && -f "$candidate/.env.seseap" ]] || continue
+  [[ "$candidate" == "$SCRIPT_DIR" ]] && continue
+  api_instances+=("$candidate")
+done
+
+if $REBUILD; then
+  ((${#api_instances[@]} > 0)) || fail "No encontré instancias con API SESEAP configurada (.env.seseap)."
+  echo "Instancias con API SESEAP para actualizar:"
+  for i in "${!api_instances[@]}"; do
+    printf '  %d) %s\n' "$((i + 1))" "$(basename "${api_instances[$i]}")"
+  done
+  read -r -p "Elige la instancia que quieres reconstruir [1]: " selection
+  selection="${selection:-1}"
+  [[ "$selection" =~ ^[0-9]+$ ]] && ((selection >= 1 && selection <= ${#api_instances[@]})) || fail "Selección inválida."
+
+  INSTANCE_DIR="${api_instances[$((selection - 1))]}"
+  STATE_ENV="$INSTANCE_DIR/.env.seseap"
+  INSTANCE_SLUG="$(basename "$INSTANCE_DIR" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]+/-/g; s/^-+|-+$//g')"
+  [[ -n "$INSTANCE_SLUG" ]] || INSTANCE_SLUG="pnd"
+  PROJECT="pndmx-seseap-$INSTANCE_SLUG"
+  compose() {
+    docker compose --project-name "$PROJECT" --env-file "$STATE_ENV" -f "$COMPOSE_FILE" "$@"
+  }
+
+  info "Reconstruyendo la API SESEAP para $(basename "$INSTANCE_DIR") con la configuración guardada."
+  compose up --build --force-recreate -d
+  compose ps
+  info "Reconstrucción terminada. La configuración institucional y las credenciales se conservaron."
+  exit 0
+fi
 
 if ((${#instances[@]} == 0)); then
   fail "No encontré instancias PND configuradas (se requiere SistemaDeclaraciones_backend/.env y docker-compose.yml)."
