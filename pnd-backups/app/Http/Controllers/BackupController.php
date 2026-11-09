@@ -9,6 +9,7 @@ use App\Services\MongoBackupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Cookie as SfCookie;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class BackupController extends Controller
@@ -86,7 +87,7 @@ class BackupController extends Controller
             'Content-Type' => 'application/gzip',
         ]);
         if ($dl) {
-            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+            $response->headers->setCookie(new SfCookie('dl_ready', $dl, 0, '/', null, false, false));
         }
         return $response;
     }

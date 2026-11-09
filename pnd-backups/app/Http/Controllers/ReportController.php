@@ -12,6 +12,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\Cookie as SfCookie;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ReportController extends Controller
@@ -148,7 +149,7 @@ class ReportController extends Controller
             ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         );
         if ($dl) {
-            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+            $response->headers->setCookie(new SfCookie('dl_ready', $dl, 0, '/', null, false, false));
         }
         return $response;
     }
@@ -176,7 +177,7 @@ class ReportController extends Controller
             'Content-Disposition' => "attachment; filename=\"declaracion_{$declaracionId}.pdf\"",
         ]);
         if ($dl) {
-            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+            $response->headers->setCookie(new SfCookie('dl_ready', $dl, 0, '/', null, false, false));
         }
         return $response;
     }
@@ -216,7 +217,7 @@ class ReportController extends Controller
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
         if ($dl) {
-            $response->cookie('dl_ready', $dl, 0, '/', null, false, false);
+            $response->headers->setCookie(new SfCookie('dl_ready', $dl, 0, '/', null, false, false));
         }
         return $response;
     }
