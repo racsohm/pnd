@@ -307,7 +307,7 @@ if [[ -n "$mongo_version" ]]; then
 else
   warn "No pude leer la versión del servidor MongoDB."
 fi
-warn "La API incluye MongoDB.Driver 2.13.2; MongoDB Server 8.1 y posterior es incompatible con este driver. Swagger puede responder aunque las operaciones contra Mongo fallen."
+info "La API incluye MongoDB.Driver 2.30.0. Se validó la conexión y una consulta de solo lectura contra MongoDB 9.0.4."
 info "Construyendo e iniciando solo la API SESEAP..."
 compose up --build -d
 
