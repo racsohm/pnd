@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use ZipArchive;
 
 /**
  * Wrappea mongodump/mongorestore que viven en este mismo contenedor
@@ -27,8 +30,12 @@ class MongoBackupService
 
         $dir = $this->ensureBackupsDir($instanceSlug);
         $stamp = date('Ymd-His');
-        $filename = sprintf('%s-%s.gz', $inst['mongo_db'], $stamp);
+        $filename = sprintf('%s-%s.zip', $inst['mongo_db'], $stamp);
         $absPath = $dir.'/'.$filename;
+        $dumpDir = rtrim(sys_get_temp_dir(), '/').'/pnd-dump-'.bin2hex(random_bytes(8));
+        if (! @mkdir($dumpDir, 0700, true)) {
+            throw new RuntimeException("No se pudo crear directorio temporal: $dumpDir");
+        }
 
         $env = $this->buildMongoEnv($inst);
 
@@ -38,8 +45,7 @@ class MongoBackupService
             '--port=' . $inst['mongo_port'],
             '--authenticationDatabase=admin',
             '--db=' . $inst['mongo_db'],
-            '--gzip',
-            '--archive=' . $absPath,
+            '--out=' . $dumpDir,
             '--quiet',
             // Credenciales por env: usamos la opción --username/--password
             // expandiendo desde shell sería un problema; mejor pasar por
@@ -53,11 +59,43 @@ class MongoBackupService
         $process->run();
 
         if (! $process->isSuccessful()) {
-            @unlink($absPath);
+            $this->removeDirectory($dumpDir);
             throw new RuntimeException(
                 "mongodump falló (exit {$process->getExitCode()}): ".
                 trim($process->getErrorOutput() ?: $process->getOutput())
             );
+        }
+
+        try {
+            $zip = new ZipArchive();
+            if ($zip->open($absPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new RuntimeException('No se pudo crear el archivo ZIP del respaldo.');
+            }
+            $bsonCount = 0;
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dumpDir, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            foreach ($iterator as $file) {
+                if (! $file->isFile()) continue;
+                $relative = substr($file->getPathname(), strlen($dumpDir) + 1);
+                $zip->addFile($file->getPathname(), str_replace(DIRECTORY_SEPARATOR, '/', $relative));
+                if (str_ends_with($relative, '.bson')) $bsonCount++;
+            }
+            $zip->close();
+            if ($bsonCount === 0) {
+                throw new RuntimeException('mongodump no generó colecciones BSON; no se guardó un ZIP vacío.');
+            }
+            $check = new ZipArchive();
+            if ($check->open($absPath, ZipArchive::CHECKCONS) !== true) {
+                throw new RuntimeException('El ZIP generado no pasó la validación.');
+            }
+            $check->close();
+        } catch (\Throwable $e) {
+            @unlink($absPath);
+            throw $e;
+        } finally {
+            $this->removeDirectory($dumpDir);
         }
 
         clearstatcache(true, $absPath);
@@ -79,16 +117,48 @@ class MongoBackupService
         }
 
         $format = $this->detectArchiveFormat($absoluteFilePath);
-        if ($format === 'tar' || $format === 'tar.gz') {
+        if ($format === 'zip') {
+            $this->restoreFromZip($instanceSlug, $inst, $absoluteFilePath, $drop);
+        } elseif ($format === 'tar' || $format === 'tar.gz') {
             $this->restoreFromTarball($instanceSlug, $inst, $absoluteFilePath, $format, $drop);
         } else {
             $this->restoreFromArchive($instanceSlug, $inst, $absoluteFilePath, $drop);
         }
     }
 
+    private function restoreFromZip(string $instanceSlug, array $inst, string $filePath, bool $drop): void
+    {
+        $tmpDir = rtrim(sys_get_temp_dir(), '/').'/pnd-restore-'.bin2hex(random_bytes(8));
+        if (! @mkdir($tmpDir, 0700, true)) {
+            throw new RuntimeException("No se pudo crear directorio temporal: $tmpDir");
+        }
+        $zip = new ZipArchive();
+        $opened = false;
+        try {
+            if ($zip->open($filePath, ZipArchive::CHECKCONS) !== true) {
+                throw new RuntimeException('El archivo no es un ZIP válido o está dañado.');
+            }
+            $opened = true;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $name = str_replace('\\', '/', $zip->getNameIndex($i));
+                if (str_starts_with($name, '/') || preg_match('~(^|/)\.\.?(/|$)~', $name)) {
+                    throw new RuntimeException('El ZIP contiene una ruta de archivo no permitida.');
+                }
+            }
+            if (! $zip->extractTo($tmpDir)) {
+                throw new RuntimeException('No se pudo extraer el ZIP de respaldo.');
+            }
+            $zip->close();
+            $opened = false;
+            $this->restoreFromDumpDirectory($instanceSlug, $inst, $tmpDir, $filePath, $drop);
+        } finally {
+            if ($opened) $zip->close();
+            $this->removeDirectory($tmpDir);
+        }
+    }
+
     /**
-     * Flujo para dumps creados con `mongodump --archive --gzip` (un único
-     * stream binario). Es el formato que produce este propio panel.
+     * Compatibilidad con respaldos legacy creados con `--archive --gzip`.
      */
     private function restoreFromArchive(string $instanceSlug, array $inst, string $absoluteFilePath, bool $drop): void
     {
@@ -132,7 +202,7 @@ class MongoBackupService
 
     /**
      * Flujo para dumps creados con `mongodump --out dir` y empaquetados
-     * con tar/tar.gz. Extrae a un dir temporal y restaura con --dir.
+     * en tar/tar.gz. Extrae a un dir temporal y restaura con --dir.
      * El layout esperado es '<dump>/<dbName>/*.bson(.gz)?'.
      */
     private function restoreFromTarball(string $instanceSlug, array $inst, string $absoluteFilePath, string $format, bool $drop): void
@@ -151,6 +221,16 @@ class MongoBackupService
                 throw new RuntimeException('No se pudo extraer el tarball: '.trim($extract->getErrorOutput() ?: $extract->getOutput()));
             }
 
+            $this->restoreFromDumpDirectory($instanceSlug, $inst, $tmpDir, $absoluteFilePath, $drop);
+        } finally {
+            $rm = new Process(['rm', '-rf', $tmpDir], null, null, null, 60);
+            $rm->run();
+        }
+    }
+
+    private function restoreFromDumpDirectory(string $instanceSlug, array $inst, string $tmpDir, string $absoluteFilePath, bool $drop): void
+    {
+            $targetDb = $inst['mongo_db'];
             $dumpRoot = $this->findMongodumpRoot($tmpDir);
             if ($dumpRoot === null) {
                 throw new RuntimeException(
@@ -199,11 +279,6 @@ class MongoBackupService
             }
 
             $this->runMongorestore($cmd, $instanceSlug, $absoluteFilePath, $inst);
-        } finally {
-            // Limpieza del dir temporal aunque falle.
-            $rm = new Process(['rm', '-rf', $tmpDir], null, null, null, 60);
-            $rm->run();
-        }
     }
 
     private function runMongorestore(array $cmd, string $instanceSlug, string $absoluteFilePath, array $inst): void
@@ -233,6 +308,11 @@ class MongoBackupService
      */
     private function detectArchiveFormat(string $absoluteFilePath): string
     {
+        $zip = new ZipArchive();
+        if ($zip->open($absoluteFilePath, ZipArchive::CHECKCONS) === true) {
+            $zip->close();
+            return 'zip';
+        }
         foreach (['tar.gz' => '-tzf', 'tar' => '-tf'] as $fmt => $flag) {
             $p = new Process(['tar', $flag, $absoluteFilePath], null, null, null, 30);
             $p->run();
@@ -241,6 +321,14 @@ class MongoBackupService
             }
         }
         return 'archive';
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            $process = new Process(['rm', '-rf', $directory], null, null, null, 60);
+            $process->run();
+        }
     }
 
     /**

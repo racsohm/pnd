@@ -117,7 +117,7 @@
     @csrf
     <h2 class="font-semibold mb-1">Crear respaldo ahora</h2>
     <p class="text-xs text-slate-500 mb-3">
-      Ejecuta <code>mongodump</code> contra esta instancia y guarda el .gz.
+      Ejecuta <code>mongodump</code> y guarda las colecciones BSON en un archivo ZIP.
     </p>
     <button type="submit"
             :disabled="busy"
@@ -135,12 +135,12 @@
         @submit="busy = true"
         class="rounded-lg border bg-white p-4">
     @csrf
-    <h2 class="font-semibold mb-1">Subir respaldo (.gz)</h2>
+    <h2 class="font-semibold mb-1">Subir respaldo (.zip)</h2>
     <p class="text-xs text-slate-500 mb-3">
-      Sube un archivo generado con <code>mongodump --gzip --archive=…</code>.
+      Sube un ZIP generado con <code>mongodump</code> que contenga archivos BSON.
       Máximo {{ config('backups.upload_max_mb') }} MB.
     </p>
-    <input type="file" name="archive" accept=".gz,application/gzip" required
+    <input type="file" name="archive" accept=".zip,application/zip" required
            class="block w-full text-sm mb-2" />
     @error('archive')<p class="text-xs text-rose-600 mb-2">{{ $message }}</p>@enderror
     <input type="text" name="notes" placeholder="Notas (opcional)"

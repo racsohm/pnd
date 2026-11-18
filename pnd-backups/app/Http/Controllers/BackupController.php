@@ -66,7 +66,7 @@ class BackupController extends Controller
             ->with('ok', "Respaldo creado: {$info['filename']}");
     }
 
-    /** Descarga un .gz */
+    /** Descarga el archivo de respaldo. */
     public function download(Request $request, int $id)
     {
         $backup = Backup::findOrFail($id);
@@ -84,7 +84,7 @@ class BackupController extends Controller
 
         $dl = $request->input('dl');
         $response = response()->download($backup->fullPath(), $backup->filename, [
-            'Content-Type' => 'application/gzip',
+            'Content-Type' => 'application/zip',
         ]);
         if ($dl) {
             $response->headers->setCookie(new SfCookie('dl_ready', $dl, 0, '/', null, false, false));
@@ -92,7 +92,7 @@ class BackupController extends Controller
         return $response;
     }
 
-    /** Sube un .gz desde el navegador */
+    /** Sube un respaldo ZIP de mongodump desde el navegador. */
     public function upload(Request $request, string $slug)
     {
         $this->authorizeInstance($slug);
@@ -103,7 +103,7 @@ class BackupController extends Controller
 
         $maxKb = ((int) config('backups.upload_max_mb', 512)) * 1024;
         $request->validate([
-            'archive' => ['required', 'file', "max:$maxKb"],
+            'archive' => ['required', 'file', 'mimes:zip', "max:$maxKb"],
             'notes'   => ['nullable', 'string', 'max:500'],
         ], [
             'archive.max' => "El archivo excede el máximo permitido ({$maxKb} KB).",
@@ -111,10 +111,29 @@ class BackupController extends Controller
 
         $file = $request->file('archive');
         $orig = $file->getClientOriginalName();
+        if (strtolower(pathinfo($orig, PATHINFO_EXTENSION)) !== 'zip') {
+            return back()->withErrors(['archive' => 'El respaldo debe tener formato .zip.'])->withInput();
+        }
+        $zip = new \ZipArchive();
+        if ($zip->open($file->getRealPath(), \ZipArchive::CHECKCONS) !== true) {
+            return back()->withErrors(['archive' => 'El archivo ZIP está dañado o no es válido.'])->withInput();
+        }
+        $hasBson = false;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = $zip->getNameIndex($i);
+            if (str_ends_with($entry, '.bson') || str_ends_with($entry, '.bson.gz')) {
+                $hasBson = true;
+                break;
+            }
+        }
+        $zip->close();
+        if (! $hasBson) {
+            return back()->withErrors(['archive' => 'El ZIP no contiene colecciones BSON de mongodump.'])->withInput();
+        }
         // Sanitiza: solo letras, números, guiones, puntos
         $base = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($orig, PATHINFO_BASENAME));
-        if (! Str::endsWith($base, '.gz')) {
-            $base .= '.gz';
+        if (! Str::endsWith(strtolower($base), '.zip')) {
+            $base .= '.zip';
         }
         $stamp = date('Ymd-His');
         $finalName = "upload-{$stamp}-{$base}";

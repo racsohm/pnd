@@ -1,7 +1,7 @@
 <?php
 
 return [
-    // Path donde se almacenan los .gz (host: ./storage-backups, container: /var/backups)
+    // Path donde se almacenan respaldos ZIP (host: ./storage-backups, container: /var/backups)
     'path' => env('BACKUPS_PATH', '/var/backups'),
 
     // Path donde se montan en read-only los directorios de las instancias PND

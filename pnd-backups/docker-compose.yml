@@ -18,7 +18,7 @@ services:
       # IP del VPS, usá "${HOST_PORT:-8090}:80" sin prefijo.
       - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8090}:80"
     volumes:
-      # Almacenamiento de respaldos (.gz). Persiste fuera del contenedor.
+      # Almacenamiento de respaldos ZIP. Persiste fuera del contenedor.
       - ./storage-backups:/var/backups
       # SQLite + sesiones + logs
       - ./storage-app:/var/www/html/storage
