@@ -4,25 +4,32 @@ services:
   seseap-api:
     build:
       context: ./seseap-api
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.node
     image: pndmx-seseap-api:local
     container_name: "${SESEAP_CONTAINER_NAME:-pndmx-seseap-api}"
     restart: unless-stopped
     environment:
-      ASPNETCORE_URLS: "http://+:80"
-      DeclaracionesConnection__HostName: "${MONGO_HOSTNAME:-pdnmx-mongo}"
-      DeclaracionesConnection__Port: "${MONGO_PORT:-27017}"
-      DeclaracionesConnection__DatabaseName: "${MONGO_DB:?MONGO_DB debe estar en el .env del backend PND}"
-      DeclaracionesConnection__UserName: "${MONGO_USERNAME:?MONGO_USERNAME debe estar en el .env del backend PND}"
-      DeclaracionesConnection__Password: "${MONGO_PASSWORD:?MONGO_PASSWORD debe estar en el .env del backend PND}"
+      PORT: "8080"
+      MONGO_HOSTNAME: "${MONGO_HOSTNAME:-pdnmx-mongo}"
+      MONGO_PORT: "${MONGO_PORT:-27017}"
+      MONGO_DB: "${MONGO_DB:?MONGO_DB debe estar en el .env del backend PND}"
+      MONGO_USERNAME: "${MONGO_USERNAME:?MONGO_USERNAME debe estar en el .env del backend PND}"
+      MONGO_PASSWORD: "${MONGO_PASSWORD:?MONGO_PASSWORD debe estar en el .env del backend PND}"
+      MONGO_AUTH_SOURCE: "${MONGO_AUTH_SOURCE:-admin}"
+      MONGO_COLLECTION: "${MONGO_COLLECTION:-declaracionesLocalColletion}"
       IdentityServerParameters__ApiName: "${SESEAP_API_NAME:?apiName debe definirse a partir de la configuración institucional}"
       IdentityServerParameters__ClientId: "${SESEAP_CLIENT_ID:?clientId es obligatorio}"
       IdentityServerParameters__ClientDescription: "${SESEAP_CLIENT_DESCRIPTION:?clientDescription es obligatorio}"
       IdentityServerParameters__Scopes__read: "read:${SESEAP_CLIENT_SCOPE_READ:?clientScopeRead es obligatorio}"
       IdentityServerParameters__Scopes__write: "write:${SESEAP_CLIENT_SCOPE_WRITE:?clientScopeWrite es obligatorio}"
       IdentityServerParameters__vpn: "${SESEAP_VPN:-false}"
+      OIDC_ISSUER: "${OIDC_ISSUER:-}"
+      OIDC_AUDIENCE: "${OIDC_AUDIENCE:-}"
+      OIDC_JWKS_URI: "${OIDC_JWKS_URI:-}"
+      OIDC_READ_SCOPE: "${OIDC_READ_SCOPE:-}"
+      OIDC_AUTHORIZATION_URL: "${OIDC_AUTHORIZATION_URL:-}"
     ports:
-      - "0.0.0.0:${SESEAP_API_PORT:-9000}:80"
+      - "0.0.0.0:${SESEAP_API_PORT:-9000}:8080"
     networks:
       - mongo
 

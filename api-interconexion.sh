@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MONGO_CONTAINER="${MONGO_CONTAINER:-pdnmx-mongo}"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.seseap.yml"
+API_DOCKERFILE="$SCRIPT_DIR/seseap-api/Dockerfile.node"
 REMOVE=false
 REBUILD=false
 
@@ -22,7 +23,7 @@ warn() { echo "[AVISO] $*" >&2; }
 command -v docker >/dev/null 2>&1 || fail "Docker no está instalado."
 docker compose version >/dev/null 2>&1 || fail "Falta el plugin docker compose."
 [[ -f "$COMPOSE_FILE" ]] || fail "No encuentro docker-compose.seseap.yml."
-[[ -f "$SCRIPT_DIR/seseap-api/Dockerfile" ]] || fail "No encuentro el paquete de la API en seseap-api/."
+[[ -f "$API_DOCKERFILE" && -f "$SCRIPT_DIR/seseap-api/src/server.js" && -f "$SCRIPT_DIR/seseap-api/package-lock.json" ]] || fail "No encuentro el código fuente de la API S1 en seseap-api/."
 
 # Descubre la instalación de la carpeta actual y las instalaciones hermanas.
 parent_dir="$(dirname "$SCRIPT_DIR")"
@@ -307,14 +308,14 @@ if [[ -n "$mongo_version" ]]; then
 else
   warn "No pude leer la versión del servidor MongoDB."
 fi
-info "La API incluye MongoDB.Driver 2.30.0. Se validó la conexión y una consulta de solo lectura contra MongoDB 9.0.4."
-info "Construyendo e iniciando solo la API SESEAP..."
+info "La API fuente se conectará a la base Mongo configurada; el contenedor solo ejecutará consultas de lectura."
+info "Construyendo la API S1 propia desde seseap-api/ (Dockerfile.node) e iniciando solo su contenedor..."
 compose up --build -d
 
 ready=false
 for _ in $(seq 1 45); do
-  status_code="$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${api_port}/" 2>/dev/null || true)"
-  if [[ "$status_code" =~ ^[1-5][0-9][0-9]$ ]]; then
+  status_code="$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${api_port}/health" 2>/dev/null || true)"
+  if [[ "$status_code" == "200" ]]; then
     ready=true
     break
   fi
@@ -322,13 +323,15 @@ for _ in $(seq 1 45); do
 done
 compose ps
 if $ready; then
-  swagger_status="$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${api_port}/swagger/v1/swagger.json" 2>/dev/null || true)"
-  info "El proceso API responde en http://127.0.0.1:${api_port}; Docker publica el puerto en todas las interfaces (0.0.0.0)."
-  if [[ "$swagger_status" == 200 ]]; then
-    info "Swagger responde en http://127.0.0.1:${api_port}/swagger."
+  API_BASE_URL="http://127.0.0.1:${api_port}"
+  swagger_document="$(curl -sS --max-time 3 "${API_BASE_URL}/swagger/v1/swagger.json" 2>/dev/null || true)"
+  swagger_status="$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' "${API_BASE_URL}/swagger/v1/swagger.json" 2>/dev/null || true)"
+  if [[ "$swagger_status" == "200" ]] && grep -Fq '"declaraciones_oauth2"' <<< "$swagger_document" && grep -Fq 'https://auth.pdepuebla.org.mx/connect/authorize' <<< "$swagger_document"; then
+    info "La API S1 propia responde en ${API_BASE_URL}; Docker publica el puerto en todas las interfaces (0.0.0.0)."
   else
-    warn "La API está activa, pero Swagger respondió HTTP ${swagger_status:-sin respuesta}. Revisa apiName/scopes y los logs del contenedor."
+    fail "El contenedor responde /health, pero Swagger no corresponde a la API S1 propia esperada. Revisa el Dockerfile y los logs."
   fi
+  info "Consola de pruebas disponible en ${API_BASE_URL}/index.html y ${API_BASE_URL}/swagger."
   info "Nginx puede publicarla en http://${nginx_host}/ usando $NGINX_FILE."
   info "Para activar el virtual host en Nginx host: copia el archivo a sites-available, enlázalo en sites-enabled, valida con nginx -t y recarga Nginx."
   info "Para permitir acceso directo mediante UFW, ejecuta: bash $SCRIPT_DIR/ufw-puertos.sh $api_port"

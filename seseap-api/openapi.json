@@ -1,0 +1,193 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API S1 de declaraciones",
+    "version": "2.0",
+    "description": "Adaptador institucional de consulta compatible con el contrato S1 de la Plataforma Digital Nacional."
+  },
+  "paths": {
+    "/v2/declaraciones": {
+      "post": {
+        "operationId": "postDeclaraciones",
+        "summary": "Consulta declaraciones con filtros y paginación",
+        "security": [{ "declaraciones_oauth2": ["read:declarations"] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Consulta" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultados de la consulta",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Respuesta" }
+              }
+            }
+          },
+          "400": {
+            "description": "Petición o página inválida",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "401": {
+            "description": "Token ausente, inválido o expirado",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "403": {
+            "description": "El token no contiene el alcance de lectura S1 requerido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Error interno",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "declaraciones_oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "implicit": {
+            "authorizationUrl": "https://auth.pdepuebla.org.mx/connect/authorize",
+            "scopes": { "read:declarations": "Consultar declaraciones institucionales" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Consulta": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "minimum": 1, "default": 1 },
+          "pageSize": { "type": "integer", "minimum": 1, "maximum": 200, "default": 10 },
+          "query": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "nombres": { "type": "string" },
+              "primerApellido": { "type": "string" },
+              "segundoApellido": { "type": "string" },
+              "escolaridadNivel": { "type": "string" },
+              "datosEmpleoCargoComision": {
+                "type": "object",
+                "properties": {
+                  "nombreEntePublico": { "type": "string" },
+                  "entidadFederativa": { "type": "string" },
+                  "municipioAlcaldia": { "type": "string" },
+                  "empleoCargoComision": { "type": "string" },
+                  "nivelOrdenGobierno": { "type": "string" },
+                  "nivelEmpleoCargoComision": { "type": "string" }
+                },
+                "additionalProperties": false
+              },
+              "bienesInmuebles": {
+                "type": "object",
+                "properties": {
+                  "superficieConstruccion": { "$ref": "#/components/schemas/Rango" },
+                  "superficieTerreno": { "$ref": "#/components/schemas/Rango" },
+                  "formaAdquisicion": { "type": "string" },
+                  "valorAdquisicion": { "$ref": "#/components/schemas/Rango" }
+                },
+                "additionalProperties": false
+              },
+              "totalIngresosNetos": { "$ref": "#/components/schemas/Rango" },
+              "rfcSolicitante": {
+                "type": "string",
+                "minLength": 12,
+                "maxLength": 13,
+                "description": "RFC de quien solicita la consulta según S1; no sustituye la autorización del token Bearer."
+              }
+            },
+            "additionalProperties": false
+          },
+          "sort": {
+            "type": "object",
+            "description": "Campos ordenables de S1. Cada dirección es asc o desc.",
+            "properties": {
+              "nombres": { "type": "string", "enum": ["asc", "desc"] },
+              "primerApellido": { "type": "string", "enum": ["asc", "desc"] },
+              "segundoApellido": { "type": "string", "enum": ["asc", "desc"] },
+              "escolaridadNivel": { "type": "string", "enum": ["asc", "desc"] },
+              "datosEmpleoCargoComision": {
+                "type": "object",
+                "properties": {
+                  "nombreEntePublico": { "type": "string", "enum": ["asc", "desc"] },
+                  "entidadFederativa": { "type": "string", "enum": ["asc", "desc"] },
+                  "municipioAlcaldia": { "type": "string", "enum": ["asc", "desc"] },
+                  "empleoCargoComision": { "type": "string", "enum": ["asc", "desc"] },
+                  "nivelEmpleoCargoComision": { "type": "string", "enum": ["asc", "desc"] },
+                  "nivelOrdenGobierno": { "type": "string", "enum": ["asc", "desc"] }
+                },
+                "additionalProperties": false
+              },
+              "totalIngresosNetos": { "type": "string", "enum": ["asc", "desc"] },
+              "bienesInmuebles": {
+                "type": "object",
+                "properties": {
+                  "superficieConstruccion": { "type": "string", "enum": ["asc", "desc"] },
+                  "superficieTerreno": { "type": "string", "enum": ["asc", "desc"] },
+                  "formaAdquisicion": { "type": "string", "enum": ["asc", "desc"] },
+                  "valorAdquisicion": { "type": "string", "enum": ["asc", "desc"] }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "Respuesta": {
+        "type": "object",
+        "required": ["pagination", "results"],
+        "properties": {
+          "pagination": {
+            "type": "object",
+            "required": ["pageSize", "page", "totalRows", "hasNextPage"],
+            "properties": {
+              "pageSize": { "type": "integer", "minimum": 1 },
+              "page": { "type": "integer", "minimum": 1 },
+              "totalRows": { "type": "integer", "minimum": 0 },
+              "hasNextPage": { "type": "boolean" }
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "metadata", "declaracion"],
+              "properties": {
+                "id": { "type": "string" },
+                "metadata": { "type": "object" },
+                "declaracion": { "type": "object" }
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "Rango": {
+        "type": "object",
+        "properties": {
+          "min": { "type": "number" },
+          "max": { "type": "number" }
+        },
+        "minProperties": 1,
+        "additionalProperties": false
+      }
+    }
+  }
+}

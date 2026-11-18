@@ -2,3 +2,5 @@
 **/*.pdb
 **/runtimes/win
 **/runtimes/osx
+node_modules/
+.env
