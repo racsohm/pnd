@@ -15,7 +15,12 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/Consulta" }
+              "schema": { "$ref": "#/components/schemas/Consulta" },
+              "example": {
+                "page": 1,
+                "pageSize": 10,
+                "query": {}
+              }
             }
           }
         },
@@ -24,7 +29,16 @@
             "description": "Resultados de la consulta",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Respuesta" }
+                "schema": { "$ref": "#/components/schemas/Respuesta" },
+                "example": {
+                  "pagination": {
+                    "pageSize": 10,
+                    "page": 1,
+                    "totalRows": 0,
+                    "hasNextPage": false
+                  },
+                  "results": []
+                }
               }
             }
           },
