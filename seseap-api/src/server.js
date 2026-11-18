@@ -337,6 +337,12 @@ async function handle(request, response) {
   if (request.method === 'GET' && url.pathname === '/dataismoLogo.png') {
     return sendFile(response, new URL('../public/dataismoLogo.png', import.meta.url), 'image/png', 'public, max-age=604800, immutable');
   }
+  if (request.method === 'GET' && url.pathname === '/oauth2-redirect.html') {
+    return sendFile(response, swaggerAssets.get('oauth2-redirect.html')[1], 'text/html; charset=utf-8');
+  }
+  if (request.method === 'GET' && url.pathname === '/oauth2-redirect.js') {
+    return sendFile(response, swaggerAssets.get('oauth2-redirect.js')[1], 'text/javascript; charset=utf-8');
+  }
   if (request.method === 'GET' && url.pathname === '/swagger/ui-config.json') {
     return sendJson(response, 200, {
       clientId: oauthClientId,

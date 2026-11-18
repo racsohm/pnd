@@ -27,7 +27,7 @@ window.addEventListener('DOMContentLoaded', () => {
         deepLinking: true,
         displayRequestDuration: true,
         filter: true,
-        oauth2RedirectUrl: `${window.location.origin}/swagger/oauth2-redirect.html`,
+        oauth2RedirectUrl: `${window.location.origin}/oauth2-redirect.html`,
         persistAuthorization: false,
         supportedSubmitMethods: ['post'],
         tryItOutEnabled: true,

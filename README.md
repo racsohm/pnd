@@ -151,7 +151,7 @@ bash ufw-puertos.sh            # solicita los puertos (por defecto 80 443)
 
 La API SESEAP se publica en `0.0.0.0:<deploymentPort>`; si necesitas acceso desde otros servidores, permite ese puerto en UFW (por ejemplo, `bash ufw-puertos.sh 9000`). No abras los puertos internos de MongoDB (27017) ni reportes (3001).
 
-Los valores `ApiName`, `ClientId` y scopes deben corresponder a los registrados para la institución ante la PDN. El emisor y audiencia se derivan de la configuración anterior; se pueden sobrescribir en `.env.seseap` con `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URI`, `OIDC_READ_SCOPE` y `OIDC_AUTHORIZATION_URL`. El proveedor debe tener registrada la URL de retorno del Swagger UI en el origen desde el que se abra la consola.
+Los valores `ApiName`, `ClientId` y scopes deben corresponder a los registrados para la institución ante la PDN. El emisor y audiencia se derivan de la configuración anterior; se pueden sobrescribir en `.env.seseap` con `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URI`, `OIDC_READ_SCOPE` y `OIDC_AUTHORIZATION_URL`. La consola usa `<origen>/oauth2-redirect.html` como callback; registra esa URL exacta en el cliente OAuth.
 
 ### `prep-alpine.sh`
 Prepara una VPS Alpine para correr el resto de scripts. Habilita el repo `community`, instala `bash docker docker-cli-compose shadow python3 git curl openssl iproute2 sudo`, agrega el usuario al grupo docker y arranca dockerd vía OpenRC. Sólo necesario en Alpine (en Ubuntu/Debian `setup.sh` instala todo solo).
