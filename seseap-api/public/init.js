@@ -82,16 +82,20 @@ function updateAuthorizationPreview() {
 
   const token = getAuthorizedAccessToken();
   if (!token) {
-    preview.dataset.authorized = 'false';
-    preview.textContent = 'Inicia sesión para autorizar consultas.';
+    const message = 'Inicia sesión para autorizar consultas.';
+    if (preview.dataset.authorized !== 'false') preview.dataset.authorized = 'false';
+    if (preview.textContent !== message) preview.textContent = message;
     return;
   }
 
   const maskedToken = token.length > 10
     ? `${token.slice(0, 4)}••••••${token.slice(-4)}`
     : '••••••••';
-  preview.dataset.authorized = 'true';
-  preview.replaceChildren('Token recibido: ', Object.assign(document.createElement('code'), { textContent: maskedToken }));
+  const message = `Token recibido: ${maskedToken}`;
+  if (preview.dataset.authorized !== 'true') preview.dataset.authorized = 'true';
+  if (preview.textContent !== message) {
+    preview.replaceChildren('Token recibido: ', Object.assign(document.createElement('code'), { textContent: maskedToken }));
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -146,7 +150,15 @@ window.addEventListener('DOMContentLoaded', () => {
         scopes: [oauth.readScope],
         usePkceWithAuthorizationCodeGrant: false,
       });
-      const authorizationObserver = new MutationObserver(updateAuthorizationPreview);
+      const authorizationObserver = new MutationObserver((mutations) => {
+        const changedOutsidePreview = mutations.some((mutation) => {
+          const target = mutation.target.nodeType === Node.ELEMENT_NODE
+            ? mutation.target
+            : mutation.target.parentElement;
+          return !target?.closest('.auth-token-preview');
+        });
+        if (changedOutsidePreview) updateAuthorizationPreview();
+      });
       authorizationObserver.observe(document.getElementById('swagger-ui'), { childList: true, subtree: true });
       updateAuthorizationPreview();
     })
