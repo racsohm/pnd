@@ -69,7 +69,10 @@
       .swagger-ui { color: #243e59; font-family: inherit; font-size: 14px; }
       .swagger-ui .topbar { display: none; }
       .swagger-ui .wrapper { max-width: none; padding: 0; }
-      .swagger-ui .scheme-container { margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); box-shadow: none; }
+      .swagger-ui .scheme-container { position: relative; margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); box-shadow: none; }
+      .auth-token-preview { position: absolute; top: 50%; left: 16px; right: 170px; overflow: hidden; color: #52657a; font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; transform: translateY(-50%); }
+      .auth-token-preview[data-authorized="true"] { color: #176044; font-weight: 650; }
+      .auth-token-preview code { color: #193451; font: 600 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
       .swagger-ui .scheme-container .schemes > label, .swagger-ui .servers-title, .swagger-ui .servers > label { color: var(--brand-blue-deep); font-weight: 650; }
       .swagger-ui select, .swagger-ui input[type="text"], .swagger-ui input[type="email"], .swagger-ui input[type="password"], .swagger-ui textarea { border: 1px solid #cbd6e2; border-radius: 5px; background: #fff; color: #193451; box-shadow: none; }
       .swagger-ui .opblock-tag { margin: 0; padding: 16px 0 12px; border-bottom: 1px solid var(--line); color: var(--brand-blue-deep); font-size: 18px; font-weight: 700; }
@@ -215,6 +218,8 @@
         .swagger-ui .opblock .opblock-summary { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
         .swagger-ui .opblock .opblock-summary-path { overflow-wrap: anywhere; }
         .swagger-ui .responses-wrapper { padding: 0 8px 10px; }
+        .auth-token-preview { right: 150px; left: 12px; font-size: 11px; }
+        .auth-token-preview code { font-size: 11px; }
         .footer-meta { align-items: flex-start; flex-direction: column; gap: 7px; }
         .footer-sources { align-items: flex-start; flex-direction: column; gap: 8px; }
       }

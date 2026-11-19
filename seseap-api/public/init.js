@@ -54,6 +54,46 @@ function localizeSwagger(root = document.body) {
   });
 }
 
+function getAuthorizedAccessToken() {
+  const authorizationState = window.ui?.authSelectors?.authorized?.();
+  const authorizations = authorizationState?.toJS?.() || authorizationState || {};
+
+  for (const authorization of Object.values(authorizations)) {
+    const value = authorization?.value;
+    const token = value?.token || value;
+    const accessToken = token?.access_token || token?.accessToken;
+    if (typeof accessToken === 'string' && accessToken) return accessToken;
+  }
+
+  return null;
+}
+
+function updateAuthorizationPreview() {
+  const schemeContainer = document.querySelector('#swagger-ui .scheme-container');
+  if (!schemeContainer) return;
+
+  let preview = schemeContainer.querySelector('.auth-token-preview');
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.className = 'auth-token-preview';
+    preview.setAttribute('aria-live', 'polite');
+    schemeContainer.prepend(preview);
+  }
+
+  const token = getAuthorizedAccessToken();
+  if (!token) {
+    preview.dataset.authorized = 'false';
+    preview.textContent = 'Inicia sesión para autorizar consultas.';
+    return;
+  }
+
+  const maskedToken = token.length > 10
+    ? `${token.slice(0, 4)}••••••${token.slice(-4)}`
+    : '••••••••';
+  preview.dataset.authorized = 'true';
+  preview.replaceChildren('Token recibido: ', Object.assign(document.createElement('code'), { textContent: maskedToken }));
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   localizeSwagger();
   const localizationObserver = new MutationObserver(() => localizeSwagger());
@@ -92,7 +132,10 @@ window.addEventListener('DOMContentLoaded', () => {
         persistAuthorization: false,
         supportedSubmitMethods: ['post'],
         tryItOutEnabled: true,
-        onComplete: () => localizeSwagger(),
+        onComplete: () => {
+          localizeSwagger();
+          updateAuthorizationPreview();
+        },
         presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
         layout: 'StandaloneLayout',
       });
@@ -103,6 +146,9 @@ window.addEventListener('DOMContentLoaded', () => {
         scopes: [oauth.readScope],
         usePkceWithAuthorizationCodeGrant: false,
       });
+      const authorizationObserver = new MutationObserver(updateAuthorizationPreview);
+      authorizationObserver.observe(document.getElementById('swagger-ui'), { childList: true, subtree: true });
+      updateAuthorizationPreview();
     })
     .catch(() => {
       document.getElementById('swagger-ui').textContent = 'No se pudo cargar la configuración de autorización. Recarga la página o contacta al administrador.';
