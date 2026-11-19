@@ -25,6 +25,7 @@ window.addEventListener('DOMContentLoaded', () => {
         url: '/swagger/v1/swagger.json',
         dom_id: '#swagger-ui',
         deepLinking: true,
+        docExpansion: 'full',
         displayRequestDuration: true,
         filter: true,
         oauth2RedirectUrl: `${window.location.origin}/oauth2-redirect.html`,

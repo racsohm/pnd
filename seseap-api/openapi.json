@@ -5,9 +5,13 @@
     "version": "2.0",
     "description": "Adaptador institucional de consulta compatible con el contrato S1 de la Plataforma Digital Nacional."
   },
+  "tags": [
+    { "name": "Declaraciones", "description": "Consultas de declaraciones patrimoniales" }
+  ],
   "paths": {
     "/v2/declaraciones": {
       "post": {
+        "tags": ["Declaraciones"],
         "operationId": "postDeclaraciones",
         "summary": "Consulta declaraciones con filtros y paginación",
         "security": [{ "declaraciones_oauth2": ["read:declarations"] }],
