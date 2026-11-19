@@ -16,7 +16,7 @@ services:
       MONGO_USERNAME: "${MONGO_USERNAME:?MONGO_USERNAME debe estar en el .env del backend PND}"
       MONGO_PASSWORD: "${MONGO_PASSWORD:?MONGO_PASSWORD debe estar en el .env del backend PND}"
       MONGO_AUTH_SOURCE: "${MONGO_AUTH_SOURCE:-admin}"
-      MONGO_COLLECTION: "${MONGO_COLLECTION:-declaracionesLocalColletion}"
+      MONGO_COLLECTION: "${MONGO_COLLECTION:-declaraciones}"
       IdentityServerParameters__ApiName: "${SESEAP_API_NAME:?apiName debe definirse a partir de la configuración institucional}"
       IdentityServerParameters__ClientId: "${SESEAP_CLIENT_ID:?clientId es obligatorio}"
       IdentityServerParameters__ClientDescription: "${SESEAP_CLIENT_DESCRIPTION:?clientDescription es obligatorio}"

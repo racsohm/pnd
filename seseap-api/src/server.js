@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const require = createRequire(import.meta.url);
@@ -23,7 +23,7 @@ const mongoPort = Number(process.env.MONGO_PORT || process.env.DeclaracionesConn
 const mongoDbName = process.env.MONGO_DB || process.env.DeclaracionesConnection__DatabaseName;
 const mongoUsername = process.env.MONGO_USERNAME || process.env.DeclaracionesConnection__UserName;
 const mongoPassword = process.env.MONGO_PASSWORD || process.env.DeclaracionesConnection__Password;
-const collectionName = process.env.MONGO_COLLECTION || 'declaracionesLocalColletion';
+const collectionName = process.env.MONGO_COLLECTION || 'declaraciones';
 const apiName = process.env.IdentityServerParameters__ApiName || process.env.SESEAP_API_NAME || '';
 const defaultIssuer = process.env.IdentityServerParameters__vpn === 'true'
   ? 'http://25.56.26.153:5000'
@@ -70,41 +70,41 @@ async function getJwks() {
 }
 
 const fieldPaths = new Map([
-  ['id', 'id'], ['strId', 'strId'], ['tipoDeclaracion', 'metadata.tipo'],
-  ['fechaRecepcion', 'metadata.actualizacion'], ['fechaActualizacion', 'metadata.actualizacion'],
-  ['nombres', 'declaracion.situacionPatrimonial.datosGenerales.nombre'],
-  ['primerApellido', 'declaracion.situacionPatrimonial.datosGenerales.primerApellido'],
-  ['segundoApellido', 'declaracion.situacionPatrimonial.datosGenerales.segundoApellido'],
-  ['escolaridadNivel', 'declaracion.situacionPatrimonial.datosCurricularesDeclarante.escolaridad.nivel.clave'],
-  ['nombreEntePublico', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nombreEntePublico'],
-  ['entidadFederativa', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.entidadFederativa'],
-  ['municipioAlcaldia', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.municipioAlcaldia'],
-  ['empleoCargoComision', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.empleoCargoComision'],
-  ['nivelOrdenGobierno', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nivelOrdenGobierno'],
-  ['nivelEmpleoCargoComision', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nivelEmpleoCargoComision'],
-  ['totalIngresosNetos', 'declaracion.situacionPatrimonial.ingresos.ingresoMensualNetoDeclarante'],
-  ['superficieConstruccion', 'declaracion.situacionPatrimonial.bienesInmuebles.superficieConstruccion'],
-  ['superficieTerreno', 'declaracion.situacionPatrimonial.bienesInmuebles.superficieTerreno'],
-  ['formaAdquisicion', 'declaracion.situacionPatrimonial.bienesInmuebles.formaAdquisicion'],
-  ['valorAdquisicion', 'declaracion.situacionPatrimonial.bienesInmuebles.valorAdquisicion'],
+  ['id', '_id'], ['strId', 'strId'], ['tipoDeclaracion', 'tipoDeclaracion'],
+  ['fechaRecepcion', 'createdAt'], ['fechaActualizacion', 'updatedAt'],
+  ['nombres', 'datosGenerales.nombre'],
+  ['primerApellido', 'datosGenerales.primerApellido'],
+  ['segundoApellido', 'datosGenerales.segundoApellido'],
+  ['escolaridadNivel', 'datosCurricularesDeclarante.escolaridad.nivel.clave'],
+  ['nombreEntePublico', 'datosEmpleoCargoComision.nombreEntePublico'],
+  ['entidadFederativa', 'datosEmpleoCargoComision.domicilioMexico.entidadFederativa.clave'],
+  ['municipioAlcaldia', 'datosEmpleoCargoComision.domicilioMexico.municipioAlcaldia.clave'],
+  ['empleoCargoComision', 'datosEmpleoCargoComision.empleoCargoComision'],
+  ['nivelOrdenGobierno', 'datosEmpleoCargoComision.nivelOrdenGobierno'],
+  ['nivelEmpleoCargoComision', 'datosEmpleoCargoComision.nivelEmpleoCargoComision'],
+  ['totalIngresosNetos', 'ingresos.totalIngresosMensualesNetos.valor'],
+  ['superficieConstruccion', 'bienesInmuebles.bienInmueble.superficieConstruccion.valor'],
+  ['superficieTerreno', 'bienesInmuebles.bienInmueble.superficieTerreno.valor'],
+  ['formaAdquisicion', 'bienesInmuebles.bienInmueble.formaAdquisicion.clave'],
+  ['valorAdquisicion', 'bienesInmuebles.bienInmueble.valorAdquisicion.valor'],
 ]);
 const sortPaths = new Map([
-  ['id', 'id'], ['fechaRecepcion', 'metadata.actualizacion'], ['fechaActualizacion', 'metadata.actualizacion'],
-  ['tipoDeclaracion', 'metadata.tipo'], ['nombres', 'declaracion.situacionPatrimonial.datosGenerales.nombre'],
-  ['primerApellido', 'declaracion.situacionPatrimonial.datosGenerales.primerApellido'],
-  ['segundoApellido', 'declaracion.situacionPatrimonial.datosGenerales.segundoApellido'],
-  ['escolaridadNivel', 'declaracion.situacionPatrimonial.datosCurricularesDeclarante.escolaridad.nivel.clave'],
-  ['nombreEntePublico', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nombreEntePublico'],
-  ['entidadFederativa', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.entidadFederativa'],
-  ['municipioAlcaldia', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.municipioAlcaldia'],
-  ['empleoCargoComision', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.empleoCargoComision'],
-  ['nivelEmpleoCargoComision', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nivelEmpleoCargoComision'],
-  ['nivelOrdenGobierno', 'declaracion.situacionPatrimonial.datosEmpleoCargoComision.nivelOrdenGobierno'],
-  ['totalIngresosNetos', 'declaracion.situacionPatrimonial.ingresos.ingresoMensualNetoDeclarante'],
-  ['superficieConstruccion', 'declaracion.situacionPatrimonial.bienesInmuebles.superficieConstruccion'],
-  ['superficieTerreno', 'declaracion.situacionPatrimonial.bienesInmuebles.superficieTerreno'],
-  ['formaAdquisicion', 'declaracion.situacionPatrimonial.bienesInmuebles.formaAdquisicion'],
-  ['valorAdquisicion', 'declaracion.situacionPatrimonial.bienesInmuebles.valorAdquisicion'],
+  ['id', '_id'], ['fechaRecepcion', 'createdAt'], ['fechaActualizacion', 'updatedAt'],
+  ['tipoDeclaracion', 'tipoDeclaracion'], ['nombres', 'datosGenerales.nombre'],
+  ['primerApellido', 'datosGenerales.primerApellido'],
+  ['segundoApellido', 'datosGenerales.segundoApellido'],
+  ['escolaridadNivel', 'datosCurricularesDeclarante.escolaridad.nivel.clave'],
+  ['nombreEntePublico', 'datosEmpleoCargoComision.nombreEntePublico'],
+  ['entidadFederativa', 'datosEmpleoCargoComision.domicilioMexico.entidadFederativa.clave'],
+  ['municipioAlcaldia', 'datosEmpleoCargoComision.domicilioMexico.municipioAlcaldia.clave'],
+  ['empleoCargoComision', 'datosEmpleoCargoComision.empleoCargoComision'],
+  ['nivelEmpleoCargoComision', 'datosEmpleoCargoComision.nivelEmpleoCargoComision'],
+  ['nivelOrdenGobierno', 'datosEmpleoCargoComision.nivelOrdenGobierno'],
+  ['totalIngresosNetos', 'ingresos.totalIngresosMensualesNetos.valor'],
+  ['superficieConstruccion', 'bienesInmuebles.bienInmueble.superficieConstruccion.valor'],
+  ['superficieTerreno', 'bienesInmuebles.bienInmueble.superficieTerreno.valor'],
+  ['formaAdquisicion', 'bienesInmuebles.bienInmueble.formaAdquisicion.clave'],
+  ['valorAdquisicion', 'bienesInmuebles.bienInmueble.valorAdquisicion.valor'],
 ]);
 
 function escapeRegex(value) {
@@ -121,20 +121,13 @@ function accentInsensitivePattern(value) {
 
 function pathAliases(path) {
   const aliases = [path];
-  if (path.startsWith('declaracion.')) aliases.push(`declaracionCompleta.${path.slice('declaracion.'.length)}`);
-  if (path.startsWith('declaracion.situacionPatrimonial.')) {
-    aliases.push(`declaracionCompleta.situacionPatrimonial.${path.slice('declaracion.situacionPatrimonial.'.length)}`);
-  }
-  if (path === 'id') aliases.push('strId', '_id');
-  if (path === 'metadata.tipo') aliases.push('tipoDeclaracion');
-  if (path.endsWith('.datosGenerales.nombre')) aliases.push(path.replace('.datosGenerales.nombre', '.datosGenerales.nombres'));
+  if (path === '_id') aliases.push('strId');
+  if (path === 'datosGenerales.nombre') aliases.push('datosGenerales.nombres');
   if (path.endsWith('.escolaridad.nivel.clave')) aliases.push(path.replace('.escolaridad.nivel.clave', '.escolaridad.nivel'));
-  if (path.endsWith('.ingresoMensualNetoDeclarante')) {
-    aliases.push(
-      path.replace('ingresoMensualNetoDeclarante', 'ingresoAnualNetoDeclarante'),
-      path.replace('ingresoMensualNetoDeclarante', 'ingresoConclusionNetoDeclarante'),
-    );
-  }
+  if (path === 'ingresos.totalIngresosMensualesNetos.valor') aliases.push(
+    'actividadAnualAnterior.totalIngresosNetosAnuales.valor',
+    'actividadAnualAnterior.ingresoNetoAnualDeclarante.valor',
+  );
   return aliases;
 }
 
@@ -153,7 +146,9 @@ function buildFilters(query) {
     if (typeof query.id !== 'string' || query.id.length < 1 || query.id.length > 128) {
       throw new HttpError(400, 'invalid_filter', 'query.id debe ser una cadena de 1 a 128 caracteres.');
     }
-    return scalarFilter(pathAliases('id'), query.id);
+    const idBranches = [{ strId: query.id }];
+    if (ObjectId.isValid(query.id)) idBranches.push({ _id: new ObjectId(query.id) });
+    return { $or: idBranches };
   }
   const flattened = {};
   const nestedGroups = {
@@ -208,7 +203,7 @@ function buildFilters(query) {
 }
 
 function buildSort(sort) {
-  const defaultSort = { 'metadata.actualizacion': -1, _id: -1 };
+  const defaultSort = { updatedAt: -1, _id: -1 };
   if (sort == null) return defaultSort;
   if (typeof sort !== 'object' || Array.isArray(sort)) throw new HttpError(400, 'invalid_sort', 'El campo sort debe ser un objeto.');
   const entries = [];
@@ -231,15 +226,71 @@ function buildSort(sort) {
   return result;
 }
 
+function cleanDeclarationValue(value) {
+  if (Array.isArray(value)) return value.map(cleanDeclarationValue);
+  if (value instanceof Date) return value.toISOString();
+  if (!value || typeof value !== 'object') return value;
+  const clean = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (['_id', '__v', 'owner'].includes(key)) continue;
+    if (key === 'valorConformeA' && nested === 'ESCRITURA_PUBLICA') {
+      clean[key] = 'ESCRITURA PÚBLICA';
+    } else {
+      clean[key] = cleanDeclarationValue(nested);
+    }
+  }
+  return clean;
+}
+
+function compactObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
+}
+
 function publicRecord(document) {
-  const record = { ...document };
-  const mongoId = record._id;
-  delete record._id;
-  delete record.__v;
-  // Los documentos se asumen en formato S1; solo se eliminan campos internos de Mongo.
-  if (!record.id && (record.strId || mongoId)) record.id = record.strId || mongoId.toString();
-  delete record.strId;
-  return record;
+  const record = document;
+  const tipo = String(record.tipoDeclaracion || '').toUpperCase();
+  const tipoS1 = tipo === 'MODIFICACION' ? 'MODIFICACIÓN' : tipo;
+  const fecha = record.updatedAt || record.createdAt || null;
+  const metadata = {
+    actualizacion: fecha instanceof Date ? fecha.toISOString() : fecha,
+    institucion: process.env.IdentityServerParameters__ClientDescription || apiName,
+    tipo: tipoS1,
+    declaracionCompleta: Boolean(record.declaracionCompleta),
+    // El modelo PND no guarda este indicador por separado.
+    actualizacionConflictoInteres: Boolean(record.actualizacionConflictoInteres),
+  };
+  const situacionPatrimonial = compactObject({
+    anioEjercicio: record.anioEjercicio,
+    datosGenerales: record.datosGenerales,
+    domicilioDeclarante: record.domicilioDeclarante,
+    datosCurricularesDeclarante: record.datosCurricularesDeclarante,
+    datosEmpleoCargoComision: record.datosEmpleoCargoComision,
+    experienciaLaboral: record.experienciaLaboral,
+    datosPareja: record.datosPareja,
+    datosDependienteEconomico: record.datosDependientesEconomicos,
+    ingresos: record.ingresos,
+    actividadAnualAnterior: record.actividadAnualAnterior,
+    bienesInmuebles: record.bienesInmuebles,
+    vehiculos: record.vehiculos,
+    bienesMuebles: record.bienesMuebles,
+    inversiones: record.inversionesCuentasValores,
+    adeudos: record.adeudosPasivos,
+    prestamoOComodato: record.prestamoComodato,
+  });
+  const interes = compactObject({
+    participacion: record.participacion,
+    participacionTomaDecisiones: record.participacionTomaDecisiones,
+    apoyos: record.apoyos,
+    representacion: record.representaciones,
+    clientesPrincipales: record.clientesPrincipales,
+    beneficiosPrivados: record.beneficiosPrivados,
+    fideicomisos: record.fideicomisos,
+  });
+  return {
+    id: record.strId || record._id?.toString(),
+    metadata,
+    declaracion: cleanDeclarationValue({ situacionPatrimonial, interes }),
+  };
 }
 
 class HttpError extends Error {
