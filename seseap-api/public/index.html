@@ -189,10 +189,15 @@
       .swagger-ui .dialog-ux .btn.authorize svg { fill: var(--brand-blue-deep) !important; }
       .swagger-ui .dialog-ux .btn-done { border-color: var(--line) !important; background: #fff !important; color: var(--brand-blue) !important; }
       .site-footer { border-top: 1px solid var(--line); background: #fff; }
-      .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; color: #5f7185; font-size: 12px; }
+      .footer-inner { display: grid; gap: 12px; padding: 17px 0; color: #52657a; font-size: 12px; }
+      .footer-meta { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
       .footer-credit { display: inline-flex; align-items: center; gap: 5px; color: #52657a; }
       .footer-credit a { color: var(--brand-blue); font-weight: 750; text-decoration: none; }
       .footer-credit a:hover { color: #c64d08; text-decoration: underline; }
+      .footer-sources { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding-top: 11px; border-top: 1px solid var(--line); }
+      .footer-sources strong { color: #193451; }
+      .footer-sources a { color: #174a78; text-decoration: underline; text-underline-offset: 2px; }
+      .footer-sources a:hover { color: #a83e00; }
       @media (max-width: 760px) {
         .header-inner, main, .footer-inner { width: min(100% - 32px, 1200px); }
         .site-header { height: 66px; }
@@ -210,7 +215,8 @@
         .swagger-ui .opblock .opblock-summary { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
         .swagger-ui .opblock .opblock-summary-path { overflow-wrap: anywhere; }
         .swagger-ui .responses-wrapper { padding: 0 8px 10px; }
-        .footer-inner { align-items: flex-start; flex-direction: column; justify-content: center; gap: 7px; padding: 16px 0; }
+        .footer-meta { align-items: flex-start; flex-direction: column; gap: 7px; }
+        .footer-sources { align-items: flex-start; flex-direction: column; gap: 8px; }
       }
     </style>
   </head>
@@ -268,8 +274,15 @@
     </main>
     <footer class="site-footer">
       <div class="footer-inner">
-        <span>Consola técnica para pruebas de interoperabilidad S1.</span>
-        <span class="footer-credit">Desarrollado por <a href="https://www.dataismo.mx/" target="_blank" rel="noopener noreferrer">Dataismo Software</a></span>
+        <div class="footer-meta">
+          <span>Consola técnica para pruebas de interoperabilidad S1.</span>
+          <span class="footer-credit">Desarrollado por <a href="https://www.dataismo.mx/" target="_blank" rel="noopener noreferrer">Dataismo Software</a></span>
+        </div>
+        <nav class="footer-sources" aria-label="Fuentes de documentación">
+          <strong>Fuentes de referencia:</strong>
+          <a href="https://www.plataformadigitalnacional.org/especificaciones/s1" target="_blank" rel="noopener noreferrer">Especificación S1 de la PDN</a>
+          <a href="https://raw.githubusercontent.com/PDNMX/api_docs/master/S1/oas/OAS_API_Declaraciones_Inicial.json" target="_blank" rel="noopener noreferrer">Contrato OpenAPI de Declaraciones</a>
+        </nav>
       </div>
     </footer>
     <script src="/swagger/swagger-ui-bundle.js" defer></script>
